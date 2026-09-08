@@ -398,6 +398,9 @@ covered only by `next build`.
   ambient globals in `src/types/index.d.ts` (no import needed).
 - **Components**: compose from `src/components/ui`; use `cn()` for conditional
   classes; keep motion behind `prefers-reduced-motion` (globals.css already
-  neutralises durations globally).
+  neutralises durations globally). `Modal` caps itself to the viewport
+  (`max-h-[calc(100dvh-2rem)]`) and scrolls its **body** between a fixed header
+  and footer - put long content straight in rather than adding a second
+  scroller, and never give a dialog its own height.
 - **Adding API routes**: prefer `server/routes/`. Express is mounted first, so a
   Next Route Handler under `src/app/api/` would be shadowed.
