@@ -1,56 +1,50 @@
 "use client";
 
-import Sidebar from "@/components/Dashboard/Sidebar";
-import { getUser, getAllTodos } from "@/utils";
-import Links from "@/utils/static.json";
-import { useStore } from "@/store/state";
-import { useEffect } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Topbar } from "@/components/layout/Topbar";
+import { CommandPalette } from "@/components/command/CommandPalette";
+import { ShortcutsModal } from "@/components/command/ShortcutsModal";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboard";
+import { useMe } from "@/hooks/useAuth";
+import { useUiStore } from "@/store/state";
+import { Spinner } from "@/components/ui";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { updateUser, updateTodos, updatePagination, todoPagination } = useStore();
   const router = useRouter();
+  const { data: user, isLoading, isError } = useMe();
+  const setView = useUiStore((s) => s.setView);
 
-  useEffect(() => {
-    getUser()
-      .then((response) => {
-        console.log("getting user");
-        return response;
-      })
-      .then((response) => {
-        if (response.status !== 200) {
-          throw new Error("Unauthorized");
-        }
-        return response;
-      })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data);
-        updateUser({ user: data, isLoggedIn: true });
-      })
-      .then(() => getAllTodos({ filter: { page: todoPagination.page, limit: todoPagination.limit } }))
-      .then((response) => {
-        console.log("getting todos");
-        return response;
-      })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data);
-        updateTodos({ todos: data?.data, todoMeta: data?.meta });
-        updatePagination({ page: data?.meta?.page, limit: data?.meta?.limit });
-      })
-      .catch((err) => {
-        console.log("Auth Error", err);
-        router.push("/login");
-      });
-  }, []);
+  useKeyboardShortcuts();
+
+  // The cookie is the only credential; a failed /me means it is gone.
+  React.useEffect(() => {
+    if (isError) router.replace("/login");
+  }, [isError, router]);
+
+  // Apply the saved default view once the user is known.
+  React.useEffect(() => {
+    if (user?.preferences?.defaultView) setView(user.preferences.defaultView);
+  }, [user?.preferences?.defaultView, setView]);
+
+  if (isLoading || isError || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-bg">
+        <Spinner className="h-7 w-7" />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-row flex-nowrap w-full h-full">
-      <Sidebar navLinks={Links.navLinks} />
-      <div className="flex flex-col flex-nowrap w-full h-full">
-        <main className="flex flex-col flex-nowrap w-full h-full p-4">{children}</main>
+    <div className="flex h-screen overflow-hidden bg-bg">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 sm:px-6">{children}</main>
       </div>
+      <CommandPalette />
+      <ShortcutsModal />
     </div>
   );
 }

@@ -2,3 +2,159 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Semantic design tokens.
+ *
+ * Components must reference these (via the Tailwind theme mapping in
+ * tailwind.config.ts) rather than raw palette colours, so that dark mode is a
+ * single swap here instead of a `dark:` variant on every element.
+ *
+ * Channels are stored space-separated so Tailwind can apply opacity modifiers:
+ * `bg-surface/50` compiles to `rgb(var(--surface) / 0.5)`.
+ */
+
+:root {
+  --bg: 248 250 252;
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 241 245 249;
+  --border: 226 232 240;
+  --border-strong: 203 213 225;
+
+  --fg: 15 23 42;
+  --fg-muted: 71 85 105;
+  --fg-subtle: 148 163 184;
+
+  --primary: 79 70 229;
+  --primary-fg: 255 255 255;
+  --primary-soft: 238 242 255;
+
+  --accent: 13 148 136;
+  --accent-soft: 240 253 250;
+
+  --success: 22 163 74;
+  --success-soft: 240 253 244;
+  --warning: 217 119 6;
+  --warning-soft: 255 251 235;
+  --danger: 220 38 38;
+  --danger-soft: 254 242 242;
+  --info: 2 132 199;
+  --info-soft: 240 249 255;
+
+  /* todo status */
+  --status-pending: 220 38 38;
+  --status-progress: 217 119 6;
+  --status-completed: 22 163 74;
+
+  /* todo priority */
+  --priority-none: 148 163 184;
+  --priority-low: 2 132 199;
+  --priority-medium: 217 119 6;
+  --priority-high: 234 88 12;
+  --priority-urgent: 220 38 38;
+
+  --ring: 99 102 241;
+
+  --shadow-color: 15 23 42;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: 9 12 20;
+  --surface: 21 26 38;
+  --surface-raised: 28 34 48;
+  --surface-sunken: 15 19 29;
+  --border: 40 48 66;
+  --border-strong: 60 71 94;
+
+  --fg: 235 240 250;
+  --fg-muted: 156 168 190;
+  --fg-subtle: 108 121 145;
+
+  --primary: 129 124 255;
+  --primary-fg: 12 14 25;
+  --primary-soft: 34 34 68;
+
+  --accent: 45 212 191;
+  --accent-soft: 12 42 42;
+
+  --success: 74 222 128;
+  --success-soft: 12 40 26;
+  --warning: 251 191 36;
+  --warning-soft: 47 34 8;
+  --danger: 248 113 113;
+  --danger-soft: 51 20 22;
+  --info: 56 189 248;
+  --info-soft: 8 35 51;
+
+  --status-pending: 248 113 113;
+  --status-progress: 251 191 36;
+  --status-completed: 74 222 128;
+
+  --priority-none: 108 121 145;
+  --priority-low: 56 189 248;
+  --priority-medium: 251 191 36;
+  --priority-high: 251 146 60;
+  --priority-urgent: 248 113 113;
+
+  --ring: 129 124 255;
+
+  --shadow-color: 0 0 0;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-bg text-fg antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* A single focus treatment for the whole app. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-bg;
+  }
+
+  ::selection {
+    @apply bg-primary/25;
+  }
+}
+
+@layer components {
+  /* Used by the sidebar, command palette and any scrollable panel. */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--border-strong)) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--border-strong));
+    border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/*
+ * Motion is opt-out at the platform level: anything animated by framer-motion
+ * or CSS collapses to an instant state change when the user asks for it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

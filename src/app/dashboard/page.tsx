@@ -1,165 +1,307 @@
 "use client";
+
+import * as React from "react";
 import Link from "next/link";
-import React from "react";
-import { useStore } from "@/store/state";
-import { getAllTodos, deleteTodo, STATUS_MAP } from "@/utils";
-import Pagination from "@/components/Dashboard/Pagination";
+import { AnimatePresence } from "framer-motion";
+import { CalendarDays, CheckSquare, Columns3, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
+import {
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  SegmentedControl,
+  TodoCardSkeleton,
+  useToast,
+} from "@/components/ui";
+import { TodoCard, type TodoCardActions } from "@/components/todo/TodoCard";
+import { FilterBar } from "@/components/todo/FilterBar";
+import { BulkBar, type BulkAction } from "@/components/todo/BulkBar";
+import { TodoBoard } from "@/components/todo/TodoBoard";
+import { TodoCalendar } from "@/components/todo/TodoCalendar";
+import { Pagination } from "@/components/todo/Pagination";
+import { useTodoFilters } from "@/hooks/useFilters";
+import { useMe } from "@/hooks/useAuth";
+import {
+  useBulkTodos,
+  useDeleteTodo,
+  useDuplicateTodo,
+  useRecoverTrash,
+  useTodos,
+  useUpdateTodo,
+} from "@/hooks/useTodos";
+import { useUiStore } from "@/store/state";
+import { cn } from "@/lib/utils";
 
-// TODO: 1. add pagination, 2. add filter - acc-decend client-server, 3. add search == pending
+const VIEW_OPTIONS = [
+  { value: "list" as const, label: "List", icon: <List className="h-3.5 w-3.5" /> },
+  { value: "grid" as const, label: "Grid", icon: <LayoutGrid className="h-3.5 w-3.5" /> },
+  { value: "board" as const, label: "Board", icon: <Columns3 className="h-3.5 w-3.5" /> },
+  { value: "calendar" as const, label: "Calendar", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+];
 
-export default function Dashboard() {
-  const [loading, setLoading] = React.useState(false);
-  const { todos, updateTodos, todoPagination, updatePagination, todoMeta } = useStore();
+const NEXT_STATUS: Record<TodoStatus, TodoStatus> = {
+  pending: "progress",
+  progress: "completed",
+  completed: "pending",
+};
 
-  const handlePaginationChange = async (page: number) => {
-    setLoading(true);
-    updatePagination({ page: page, limit: todoPagination.limit });
-    getAllTodos({
-      filter: {
-        page: page,
-        limit: todoPagination.limit,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        updateTodos({ todos: data?.data, todoMeta: data?.meta });
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      })
-      .finally(() => {
-        setLoading(false);
+export default function DashboardPage() {
+  const toast = useToast();
+  const { data: user } = useMe();
+  const { filter, setFilter, reset, activeCount } = useTodoFilters(user?.preferences?.pageSize || 10);
+  const { view, setView, selection, toggleSelected, selectMany, clearSelection } = useUiStore();
+
+  // Board and calendar need the whole set, not one page of it.
+  const isWholeSetView = view === "board" || view === "calendar";
+  const query = isWholeSetView ? { ...filter, limit: 100, page: 1 } : filter;
+  const { data, isLoading, isFetching, refetch } = useTodos(query);
+
+  const updateTodo = useUpdateTodo();
+  const deleteTodo = useDeleteTodo();
+  const duplicateTodo = useDuplicateTodo();
+  const recoverTrash = useRecoverTrash();
+  const bulk = useBulkTodos();
+
+  const [confirmBulkDelete, setConfirmBulkDelete] = React.useState(false);
+
+  const todos = data?.data || [];
+  const meta = data?.meta;
+  const compact = user?.preferences?.density === "compact";
+
+  // Drop ids that are no longer on screen so the bulk bar cannot act on them.
+  React.useEffect(() => {
+    const visible = new Set(todos.map((t) => t._id));
+    const stale = selection.filter((id) => !visible.has(id));
+    if (stale.length) selectMany(selection.filter((id) => visible.has(id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  const actions: TodoCardActions = {
+    onToggleStatus: (todo) => {
+      const status = NEXT_STATUS[todo.status || "pending"];
+      updateTodo.mutate(
+        { id: todo._id as string, input: { status } },
+        {
+          onError: (error) => toast.error("Could not update status", { description: (error as Error).message }),
+          onSuccess: () => {
+            if (status === "completed" && todo.recurrence !== "none") {
+              toast.success("Completed", { description: "The next occurrence has been scheduled." });
+            }
+          },
+        }
+      );
+    },
+
+    onTogglePin: (todo) => {
+      updateTodo.mutate({ id: todo._id as string, input: { pinned: !todo.pinned } });
+    },
+
+    onArchive: (todo) => {
+      updateTodo.mutate(
+        { id: todo._id as string, input: { archived: !todo.archived } },
+        {
+          onSuccess: () =>
+            toast.success(todo.archived ? "Restored from archive" : "Archived", {
+              action: {
+                label: "Undo",
+                onClick: () => updateTodo.mutate({ id: todo._id as string, input: { archived: todo.archived } }),
+              },
+            }),
+        }
+      );
+    },
+
+    onDuplicate: (todo) => {
+      duplicateTodo.mutate(todo._id as string, {
+        onSuccess: () => toast.success("Duplicated", { description: `"${todo.title}" was copied.` }),
+        onError: (error) => toast.error("Could not duplicate", { description: (error as Error).message }),
       });
-  };
-  const handleResetPaginationChange = async () => {
-    updatePagination({ page: 1, limit: todoPagination.limit });
-    getAllTodos({
-      filter: {
-        page: 1,
-        limit: todoPagination.limit,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        updateTodos({ todos: data?.data, todoMeta: data?.meta });
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      })
-      .finally(() => {
-        setLoading(false);
+    },
+
+    onDelete: (todo) => {
+      deleteTodo.mutate(todo._id as string, {
+        onSuccess: (trashed) =>
+          toast.success("Moved to trash", {
+            description: todo.title,
+            action: {
+              // The delete response carries the todo; recovering needs the
+              // trash record, so look it up by the original id.
+              label: "Undo",
+              onClick: async () => {
+                try {
+                  const { api } = await import("@/lib/api");
+                  const trash = await api.listTrash({ limit: 50 });
+                  const entry = trash.data.find((t) => t.todoId === todo._id);
+                  if (entry?._id) recoverTrash.mutate(entry._id);
+                } catch {
+                  toast.error("Could not restore the todo");
+                }
+              },
+            },
+          }),
+        onError: (error) => toast.error("Could not delete", { description: (error as Error).message }),
       });
+    },
+
+    onTagClick: (tag) => {
+      const current = filter.tags || [];
+      setFilter({ tags: current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag] });
+    },
   };
 
-  const handleGetAllTodos = async () => {
-    setLoading(true);
-    getAllTodos({
-      filter: {
-        page: todoPagination.page,
-        limit: todoPagination.limit,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        updateTodos({ todos: data?.data, todoMeta: data?.meta });
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      });
+  const runBulk = ({ action, value }: BulkAction) => {
+    if (action === "delete") {
+      setConfirmBulkDelete(true);
+      return;
+    }
+    bulk.mutate(
+      { ids: selection, action, value },
+      {
+        onSuccess: (result) => {
+          toast.success(`${result.modified} todo${result.modified === 1 ? "" : "s"} updated`);
+          clearSelection();
+        },
+        onError: (error) => toast.error("Bulk action failed", { description: (error as Error).message }),
+      }
+    );
   };
 
-  const handleRefreshTodos = async () => {
-    setLoading(true);
-    getAllTodos({
-      filter: {
-        page: todoPagination.page,
-        limit: todoPagination.limit,
-      },
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        updateTodos({ todos: data?.data, todoMeta: data?.meta });
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      });
+  const confirmDelete = () => {
+    bulk.mutate(
+      { ids: selection, action: "delete" },
+      {
+        onSuccess: (result) => {
+          toast.success(`${result.modified} todo${result.modified === 1 ? "" : "s"} moved to trash`);
+          clearSelection();
+          setConfirmBulkDelete(false);
+        },
+        onError: (error) => {
+          toast.error("Could not delete", { description: (error as Error).message });
+          setConfirmBulkDelete(false);
+        },
+      }
+    );
   };
 
-  const handleDeleteTodo = async (todoId: string | undefined) => {
-    setLoading(true);
-    deleteTodo(todoId)
-      .then((response) => response.json())
-      .then(handleGetAllTodos)
-      .catch((err) => {
-        console.log(err);
-        setLoading(false);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  };
+  const allSelected = todos.length > 0 && selection.length === todos.length;
 
   return (
-    <div className={`flex flex-col flex-nowrap w-full h-full`}>
-      <div className="flex flex-row flex-nowrap justify-between items-center w-full h-12 px-4 mb-10 border-b-2 py-2">
-        <h1 className="text-2xl font-bold">Todos</h1>
-        <div>
-          <button className="mx-2 rounded-md border-green-600 border-2 py-1 px-6 hover:bg-green-600 hover:text-white" onClick={handleRefreshTodos}>
-            Refresh
+    <div className="mx-auto max-w-6xl space-y-5">
+      <FilterBar
+        filter={filter}
+        setFilter={setFilter}
+        reset={reset}
+        activeCount={activeCount}
+        right={
+          <div className="flex items-center gap-2">
+            <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} />
+            <Button variant="secondary" size="md" onClick={() => refetch()} disabled={isFetching}>
+              <RotateCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+              <span className="sr-only sm:not-sr-only">Refresh</span>
+            </Button>
+            <Link href="/dashboard/create-todo">
+              <Button size="md">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New</span>
+              </Button>
+            </Link>
+          </div>
+        }
+      />
+
+      {(view === "list" || view === "grid") && todos.length > 0 && (
+        <div className="flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            onClick={() => (allSelected ? clearSelection() : selectMany(todos.map((t) => t._id as string)))}
+            className="font-medium text-primary hover:underline"
+          >
+            {allSelected ? "Clear selection" : "Select all on this page"}
           </button>
-          <button className="rounded-md border-yellow-600 border-2 py-1 px-1 hover:bg-yellow-600 hover:text-white" onClick={handleResetPaginationChange}>
-            Reset
-          </button>
-          <Link href={"/dashboard/create-todo"} className="mx-2 self-end text-center bg-green-600 rounded-md py-2 px-6 w-36 text-white font-bold tracking-wide hover:bg-green-700">
-            New
-          </Link>
+          {meta && <span className="text-fg-subtle">{meta.totalRecords} todos</span>}
         </div>
-      </div>
-      {/* Todos */}
-      <div className="flex flex-col flex-nowrap w-full h-full overflow-y-auto">
-        {loading == false &&
-          todos?.map((todo) => (
-            <div key={todo._id} className="flex flex-col flex-nowrap justify-start w-full h-min px-4 mb-8 bg-white rounded-md shadow-lg">
-              <div className="flex flex-row flex-nowrap justify-between w-full h-12 border-b-[1px]">
-                <div className="flex flex-row items-center flex-nowrap w-3/4">
-                  <Link href={`/dashboard/todo/${todo._id}`} className="text-xl font-bold hover:text-gray-500 cursor-pointer hover:underline">
-                    {todo.title}
-                  </Link>
-                  <div className="ml-4 flex flex-row gap-2">
-                    <Link className="text-sm text-center font-semibold text-gray-900 rounded-md bg-gray-200 px-2" href={"/dashboard/edit-todo/" + todo._id}>
-                      edit
-                    </Link>
-                    <button
-                      onClick={() => {
-                        handleDeleteTodo(todo?._id);
-                      }}
-                      className="text-sm text-center font-semibold text-red-900 rounded-md bg-red-100 px-2"
-                    >
-                      delete
-                    </button>
-                  </div>
-                </div>
-                <div className="flex flex-col flex-nowrap justify-center w-24">
-                  <h1 className={`text-sm font-bold text-center text-white p-1 rounded-3xl ${todo?.status === "pending"? "bg-red-500" : todo?.status === "completed" ? "bg-green-500" : "bg-yellow-500"   }`}>{todo?.status}</h1>
-                </div>
-              </div>
-              <div className="flex flex-row flex-nowrap w-full h-16 mt-2">
-                <div className="flex flex-col flex-nowrap justify-center w-full h-full">
-                  <p className="line-clamp-3 text-clip whitespace-normal min-w-[300px] max-w-[900px]">{todo.description}</p>
-                </div>
-              </div>
-            </div>
+      )}
+
+      {isLoading ? (
+        <div className={cn("gap-3", view === "grid" ? "grid sm:grid-cols-2" : "flex flex-col")}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <TodoCardSkeleton key={i} />
           ))}
-      </div>
-      {loading == false && <Pagination currentPage={todoPagination.page} totalPages={todoMeta?.totalPages || 0} onPageChange={handlePaginationChange} />}
+        </div>
+      ) : todos.length === 0 ? (
+        <EmptyState
+          icon={<CheckSquare className="h-6 w-6" />}
+          title={activeCount > 0 ? "No todos match these filters" : "Nothing here yet"}
+          description={
+            activeCount > 0
+              ? "Try loosening or clearing the filters to see more."
+              : "Create your first todo and it will show up right here."
+          }
+          action={
+            activeCount > 0 ? (
+              <Button variant="secondary" onClick={reset}>
+                Clear filters
+              </Button>
+            ) : (
+              <Link href="/dashboard/create-todo">
+                <Button>
+                  <Plus className="h-4 w-4" />
+                  New todo
+                </Button>
+              </Link>
+            )
+          }
+        />
+      ) : view === "board" ? (
+        <TodoBoard
+          todos={todos}
+          onStatusChange={(todo, status) =>
+            updateTodo.mutate(
+              { id: todo._id as string, input: { status } },
+              { onError: (error) => toast.error("Could not move todo", { description: (error as Error).message }) }
+            )
+          }
+        />
+      ) : view === "calendar" ? (
+        <TodoCalendar todos={todos} />
+      ) : (
+        <div className={cn("gap-3", view === "grid" ? "grid sm:grid-cols-2" : "flex flex-col")}>
+          <AnimatePresence mode="popLayout">
+            {todos.map((todo) => (
+              <TodoCard
+                key={todo._id}
+                todo={todo}
+                query={filter.q}
+                actions={actions}
+                compact={compact}
+                selectable
+                selected={selection.includes(todo._id as string)}
+                onSelectedChange={() => toggleSelected(todo._id as string)}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {!isWholeSetView && meta && (
+        <Pagination
+          currentPage={meta.page || 1}
+          totalPages={meta.totalPages || 1}
+          totalRecords={meta.totalRecords}
+          onPageChange={(page) => setFilter({ page })}
+        />
+      )}
+
+      <BulkBar count={selection.length} onClear={clearSelection} onAction={runBulk} busy={bulk.isPending} />
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        onOpenChange={setConfirmBulkDelete}
+        title={`Move ${selection.length} todo${selection.length === 1 ? "" : "s"} to trash?`}
+        description="You can restore them from the trash afterwards."
+        confirmLabel="Move to trash"
+        loading={bulk.isPending}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
