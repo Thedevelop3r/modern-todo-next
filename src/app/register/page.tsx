@@ -1,112 +1,152 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+
+import * as React from "react";
 import Link from "next/link";
-import { API_ENDPOINT } from "@/utils/api_endpoint";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { ArrowLeft, CheckSquare, UserPlus } from "lucide-react";
+import { Button, Card, CardContent, Field, Input, ThemeToggle, useToast } from "@/components/ui";
+import { useRegister } from "@/hooks/useAuth";
+import { passwordStrength, registerSchema } from "@/lib/validation";
+import { cn } from "@/lib/utils";
 
-export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+function StrengthMeter({ password }: { password: string }) {
+  const { score, label, hint } = passwordStrength(password);
+  const colors = ["bg-danger", "bg-danger", "bg-warning", "bg-info", "bg-success"];
+
+  return (
+    <div className="mt-2">
+      <div className="flex gap-1">
+        {[0, 1, 2, 3].map((index) => (
+          <span
+            key={index}
+            className={cn("h-1 flex-1 rounded-full transition-colors", index < score ? colors[score] : "bg-surface-sunken")}
+          />
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-fg-muted">
+        <span className="font-medium text-fg">{label}</span> · {hint}
+      </p>
+    </div>
+  );
+}
+
+export default function RegisterPage() {
   const router = useRouter();
+  const toast = useToast();
+  const register = useRegister();
 
-  const validPassword = (password: string) => {
-    return password.length >= 8; //&& password.match(/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/);
-  };
+  const [form, setForm] = React.useState({ name: "", email: "", password: "" });
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(API_ENDPOINT.register, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password }),
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const result = registerSchema.safeParse(form);
+    if (!result.success) {
+      const found: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const key = issue.path[0];
+        if (typeof key === "string" && !found[key]) found[key] = issue.message;
       });
-      if (!response.ok) throw new Error("Register failed");
-      const responseBody = await response.json();
-
-      console.log(responseBody);
-      setIsSubmitting(false);
-      alert("Register success");
-      router.push("/login");
-    } catch (error) {
-      console.log(error);
-      setIsSubmitting(false);
+      setErrors(found);
+      return;
     }
+    setErrors({});
+
+    register.mutate(result.data, {
+      onSuccess: () => {
+        toast.success("Account created", { description: "Sign in to get started." });
+        router.push("/login");
+      },
+      onError: (error) => {
+        const message = (error as Error).message;
+        // A duplicate email is the one field-specific failure worth pinning.
+        setErrors(message.toLowerCase().includes("email") ? { email: message } : {});
+        toast.error("Could not create account", { description: message });
+      },
+    });
   };
 
   return (
-    <div className="flex flex-col items-center justify-start h-screen mt-14">
-      <div className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-              Name
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="text"
-              placeholder="Name"
-              required
-            />
+    <div className="flex min-h-screen flex-col bg-bg">
+      <div className="flex items-center justify-between px-4 py-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+        <ThemeToggle />
+      </div>
+
+      <div className="flex flex-1 items-center justify-center px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-md"
+        >
+          <div className="mb-8 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-fg shadow-glow">
+              <CheckSquare className="h-6 w-6" />
+            </span>
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-fg">Create your account</h1>
+            <p className="mt-1.5 text-sm text-fg-muted">It takes about ten seconds.</p>
           </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              Email Address
-            </label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="email"
-              placeholder="Email Address"
-              required
-              pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$"
-            />
-          </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-              Password
-            </label>
-            <input
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                // modify error display input error display
-                if (e.target.value.length === 0) {
-                  e.target.classList.remove("border-green-500");
-                  e.target.classList.add("border-red-500");
-                } else if (validPassword(e.target.value)) {
-                  e.target.classList.remove("border-red-500");
-                  e.target.classList.add("border-green-500");
-                }
-              }}
-              className="shadow appearance-none border border-red-500 rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
-              type="password"
-              placeholder="Password"
-              minLength={8}
-              required
-              //   pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-            />
-            {<div className={`text-xs italic ${validPassword(password) ? "text-green-500" : "text-red-600"}`}>Password must be at least 8 characters long.</div>}
-          </div>
-          <div className="flex items-center justify-between">
-            <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit" disabled={isSubmitting}>
-              Register
-            </button>
-            <Link href="/login" className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800">
-              Already have an account?
+
+          <Card>
+            <CardContent>
+              <form onSubmit={submit} className="space-y-4" noValidate>
+                <Field label="Name" error={errors.name} htmlFor="name" required>
+                  <Input
+                    id="name"
+                    autoComplete="name"
+                    placeholder="Your name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    invalid={Boolean(errors.name)}
+                  />
+                </Field>
+
+                <Field label="Email address" error={errors.email} htmlFor="email" required>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    invalid={Boolean(errors.email)}
+                  />
+                </Field>
+
+                <Field label="Password" error={errors.password} htmlFor="password" required>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    invalid={Boolean(errors.password)}
+                  />
+                  {form.password && <StrengthMeter password={form.password} />}
+                </Field>
+
+                <Button type="submit" block size="lg" loading={register.isPending}>
+                  <UserPlus className="h-4 w-4" />
+                  Create account
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="mt-5 text-center text-sm text-fg-muted">
+            Already have an account?{" "}
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+              Sign in
             </Link>
-          </div>
-        </form>
-        <p className="text-center text-gray-500 text-xs">&copy;{new Date().getFullYear()} Tekvek. All rights reserved.</p>
+          </p>
+        </motion.div>
       </div>
     </div>
   );

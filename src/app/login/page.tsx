@@ -1,115 +1,112 @@
 "use client";
+
+import * as React from "react";
 import Link from "next/link";
-import React, { FormEventHandler, useState } from "react";
-import { API_ENDPOINT } from "@/utils/api_endpoint";
-import { useStore } from "@/store/state"; // Import the StoreApi type // Import the StoreState type
-import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { ArrowLeft, CheckSquare, LogIn } from "lucide-react";
+import { Button, Card, CardContent, Field, Input, ThemeToggle, useToast } from "@/components/ui";
+import { useLogin } from "@/hooks/useAuth";
+import { loginSchema } from "@/lib/validation";
 
-export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const router = useRouter();
+export default function LoginPage() {
+  const toast = useToast();
+  const login = useLogin();
 
-  // Update the type of the useStore hook
-  const updateUser = useStore.getState().updateUser;
+  const [form, setForm] = React.useState({ email: "", password: "" });
+  const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  const validPassword = (password: string) => {
-    return password.length >= 8; //&& password.match(/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/);
-  };
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(API_ENDPOINT.login, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+    const result = loginSchema.safeParse(form);
+    if (!result.success) {
+      const found: Record<string, string> = {};
+      result.error.issues.forEach((issue) => {
+        const key = issue.path[0];
+        if (typeof key === "string" && !found[key]) found[key] = issue.message;
       });
-      if (!response.ok) {
-        console.log(await response.json());
-        throw new Error("Login failed");
-      }
-      const responseBody = await response.json();
-      console.log(responseBody);
-      setIsSubmitting(false);
-      // update state
-      updateUser({ user: responseBody, isLoggedIn: true });
-      router.push("/dashboard");
-    } catch (error) {
-      console.log(error);
-      setIsSubmitting(false);
-      alert("Login failed");
+      setErrors(found);
+      return;
     }
+    setErrors({});
+
+    login.mutate(result.data, {
+      onError: (error) => {
+        // The API answers the same way for a bad email and a bad password.
+        const message = (error as Error).message;
+        setErrors({ password: message });
+        toast.error("Could not sign in", { description: message });
+      },
+    });
   };
 
   return (
-    <div className="flex flex-col items-center justify-start h-screen mt-20">
-      <div className="w-full max-w-md">
-        <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-          <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
-              Email Address
-            </label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-              type="email"
-              placeholder="Email Address"
-              required
-              pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$"
-            />
-          </div>
-          <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
-              Password
-            </label>
-            <input
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                // modify error display input error display
-                if (e.target.value.length === 0) {
-                  e.target.classList.remove("border-green-500");
-                  e.target.classList.add("border-red-500");
-                } else if (validPassword(e.target.value)) {
-                  e.target.classList.remove("border-red-500");
-                  e.target.classList.add("border-green-500");
-                }
-              }}
-              className="shadow appearance-none border border-red-500 rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline"
-              type="password"
-              placeholder="******************"
-              required
-              minLength={8}
-              // pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-            />
-            {/* display allowed pattren, turn green when its matches */}
-            {<div className={`text-xs italic ${validPassword(password) ? "text-green-500" : "text-red-600"}`}>Password must be at least 8 characters long.</div>}
-          </div>
-          <div className="flex items-center justify-between">
-            <button disabled={isSubmitting} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" type="submit">
-              {isSubmitting ? "Loading..." : "Sign In"}
-            </button>
-            <Link className="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="/forgot-password">
-              Forgot Password?
-            </Link>
-          </div>
-          {/* not a user register */}
-          <div className="text-left mt-4">
-            <p className="text-gray-500 text-sm inline-block">Not a user?</p>
-            <Link className="ml-2 inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800" href="/register">
-              Register Now
-            </Link>
-          </div>
-        </form>
+    <div className="flex min-h-screen flex-col bg-bg">
+      <div className="flex items-center justify-between px-4 py-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-1.5 text-sm font-medium text-fg-muted transition-colors hover:text-fg">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Link>
+        <ThemeToggle />
+      </div>
 
-        <p className="text-center text-gray-500 text-xs">&copy;{new Date().getFullYear()} Tekvek. All rights reserved.</p>
+      <div className="flex flex-1 items-center justify-center px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-md"
+        >
+          <div className="mb-8 text-center">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-fg shadow-glow">
+              <CheckSquare className="h-6 w-6" />
+            </span>
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-fg">Welcome back</h1>
+            <p className="mt-1.5 text-sm text-fg-muted">Sign in to pick up where you left off.</p>
+          </div>
+
+          <Card>
+            <CardContent>
+              <form onSubmit={submit} className="space-y-4" noValidate>
+                <Field label="Email address" error={errors.email} htmlFor="email" required>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    invalid={Boolean(errors.email)}
+                  />
+                </Field>
+
+                <Field label="Password" error={errors.password} htmlFor="password" required>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    invalid={Boolean(errors.password)}
+                  />
+                </Field>
+
+                <Button type="submit" block size="lg" loading={login.isPending}>
+                  <LogIn className="h-4 w-4" />
+                  Sign in
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="mt-5 text-center text-sm text-fg-muted">
+            New here?{" "}
+            <Link href="/register" className="font-semibold text-primary hover:underline">
+              Create an account
+            </Link>
+          </p>
+        </motion.div>
       </div>
     </div>
   );
