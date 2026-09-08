@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns="http://www.w3.org/2000/svg"
+    xmlns:cc="http://creativecommons.org/ns#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+    xmlns:svg="http://www.w3.org/2000/svg"
+    xmlns:ns1="http://sozi.baierouge.fr"
+    xmlns:xlink="http://www.w3.org/1999/xlink"
+    id="svg2"
+    sodipodi:docname="New document 1"
+    viewBox="188 0 200 200"
+    version="1.1"
+    inkscape:version="0.48.1 "
+  >
+  <sodipodi:namedview
+      id="base"
+      bordercolor="#666666"
+      inkscape:pageshadow="2"
+      inkscape:window-y="-4"
+      fit-margin-left="0"
+      pagecolor="#ffffff"
+      fit-margin-top="0"
+      inkscape:window-maximized="1"
+      inkscape:zoom="0.77335366"
+      inkscape:window-x="-4"
+      inkscape:window-height="751"
+      showgrid="false"
+      borderopacity="1.0"
+      inkscape:current-layer="layer1"
+      inkscape:cx="130.29687"
+      inkscape:cy="130.30564"
+      fit-margin-right="0"
+      fit-margin-bottom="0"
+      inkscape:window-width="1280"
+      inkscape:pageopacity="0.0"
+      inkscape:document-units="px"
+  />
+  <g
+      id="layer1"
+      inkscape:label="Layer 1"
+      inkscape:groupmode="layer"
+      transform="translate(-3.3991 -1.4284)"
+    >
+    <g
+        id="g3863"
+        transform="translate(-5.1723 10.345)"
+      >
+      <g
+          id="g3848"
+          transform="translate(-166.81 1.2931)"
+        >
+        <rect
+            id="rect3822"
+            style="fill:#800080"
+            ry="21.399"
+            height="138.46"
+            width="180"
+            y="89.105"
+            x="362.87"
+        />
+        <path
+            id="path3824"
+            style="fill:#ffffff"
+            sodipodi:type="star"
+            d="m291.43 526.65-84.13-145.72-84.13-145.71l168.26-0.00001 168.26 0.00001-84.128 145.71z"
+            sodipodi:r1="194.28571"
+            inkscape:flatsided="false"
+            inkscape:transform-center-y="50.952378"
+            transform="matrix(.44056 0 0 .46216 324.48 -19.602)"
+            sodipodi:arg2="2.6179939"
+            sodipodi:arg1="1.5707963"
+            inkscape:randomized="0"
+            sodipodi:cy="332.36218"
+            sodipodi:cx="291.42856"
+            inkscape:rounded="0"
+            sodipodi:r2="97.14286"
+            sodipodi:sides="3"
+        />
+        <path
+            id="path3828"
+            sodipodi:rx="132.85715"
+            sodipodi:ry="132.85715"
+            style="fill:#800080"
+            sodipodi:type="arc"
+            d="m-237.14 379.51c0 73.375-59.482 132.86-132.86 132.86-73.375 0-132.86-59.482-132.86-132.86 0-73.375 59.482-132.86 132.86-132.86 73.375 0 132.86 59.482 132.86 132.86z"
+            transform="matrix(.36950 0 0 .36950 589.59 -101.35)"
+            sodipodi:cy="379.50504"
+            sodipodi:cx="-370"
+        />
+        <g
+            id="g3839"
+            transform="matrix(.35556 0 0 0.4 533.03 114.19)"
+          >
+          <path
+              id="path3818"
+              d="m-223.7-17.653c0 16.068-55.619 22.629-82.756 22.629s-36.206-14.319-36.206-30.387 9.0685-27.801 36.206-27.801c27.137 0 82.756 19.491 82.756 35.559z"
+              sodipodi:nodetypes="sssss"
+              style="fill:#ff00ff"
+              inkscape:connector-curvature="0"
+          />
+          <path
+              id="path3835"
+              sodipodi:nodetypes="sssss"
+              style="fill:#ff00ff"
+              inkscape:connector-curvature="0"
+              d="m-228.87-17.653c0 16.068 55.619 22.629 82.756 22.629s36.206-14.319 36.206-30.387-9.0685-27.801-36.206-27.801c-27.137 0-82.756 19.491-82.756 35.559z"
+          />
+          <path
+              id="path3837"
+              sodipodi:rx="15.516833"
+              sodipodi:ry="14.870298"
+              style="fill:#ff00ff"
+              sodipodi:type="arc"
+              d="m-217.24-18.946c0 8.2126-6.9471 14.87-15.517 14.87-8.5697 0-15.517-6.6577-15.517-14.87 0-8.2126 6.9471-14.87 15.517-14.87 8.5697 0 15.517 6.6577 15.517 14.87z"
+              transform="matrix(1.2917 0 0 1.2174 72.412 -1.0536)"
+              sodipodi:cy="-18.945868"
+              sodipodi:cx="-232.7525"
+          />
+        </g
+        >
+      </g
+      >
+    </g
+    >
+  </g
+  >
+  <metadata
+    >
+    <rdf:RDF
+      >
+      <cc:Work
+        >
+        <dc:format
+          >image/svg+xml</dc:format
+        >
+        <dc:type
+            rdf:resource="http://purl.org/dc/dcmitype/StillImage"
+        />
+        <cc:license
+            rdf:resource="http://creativecommons.org/licenses/publicdomain/"
+        />
+        <dc:publisher
+          >
+          <cc:Agent
+              rdf:about="http://openclipart.org/"
+            >
+            <dc:title
+              >Openclipart</dc:title
+            >
+          </cc:Agent
+          >
+        </dc:publisher
+        >
+        <dc:title
+          >Men and women</dc:title
+        >
+        <dc:date
+          >2012-01-06T09:52:54</dc:date
+        >
+        <dc:description
+          >men and women avatar </dc:description
+        >
+        <dc:source
+          >https://openclipart.org/detail/166871/men-and-women-by-gsagri04</dc:source
+        >
+        <dc:creator
+          >
+          <cc:Agent
+            >
+            <dc:title
+              >gsagri04</dc:title
+            >
+          </cc:Agent
+          >
+        </dc:creator
+        >
+        <dc:subject
+          >
+          <rdf:Bag
+            >
+            <rdf:li
+              >Men</rdf:li
+            >
+            <rdf:li
+              >avatar</rdf:li
+            >
+            <rdf:li
+              >icon</rdf:li
+            >
+            <rdf:li
+              >user</rdf:li
+            >
+            <rdf:li
+              >web</rdf:li
+            >
+            <rdf:li
+              >women</rdf:li
+            >
+          </rdf:Bag
+          >
+        </dc:subject
+        >
+      </cc:Work
+      >
+      <cc:License
+          rdf:about="http://creativecommons.org/licenses/publicdomain/"
+        >
+        <cc:permits
+            rdf:resource="http://creativecommons.org/ns#Reproduction"
+        />
+        <cc:permits
+            rdf:resource="http://creativecommons.org/ns#Distribution"
+        />
+        <cc:permits
+            rdf:resource="http://creativecommons.org/ns#DerivativeWorks"
+        />
+      </cc:License
+      >
+    </rdf:RDF
+    >
+  </metadata
+  >
+</svg
+>
