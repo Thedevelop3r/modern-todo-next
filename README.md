@@ -8,38 +8,60 @@ from a single custom server on a single port.
 
 ![Dashboard](project-screenshots/dashboard.png)
 
+## Features
+
+**Organise** — due dates with overdue/today/soon badges · five priority levels ·
+free-form tags with autocomplete · subtask checklists with progress · pinning ·
+archive · duplicate · recurring todos (daily/weekly/monthly)
+
+**Find** — full-text search across titles, descriptions and tags with highlighted
+matches · combined status/priority/tag/due filters · sorting on five fields ·
+filters live in the URL, so any view is a shareable link
+
+**Act** — multi-select with bulk status, priority, tag, pin, archive and delete ·
+optimistic updates with undo · trash with restore · empty trash
+
+**See** — list, grid, drag-and-drop board and month calendar views · analytics
+with completion trends, status and priority breakdowns, top tags and a daily
+streak
+
+**Control** — `Ctrl/Cmd+K` command palette · keyboard shortcuts (`n`, `/`, `g d`,
+`?`) · dark mode · saved preferences (theme, default view, page size, density)
+
+**Account** — change password with a strength meter · avatar picker ·
+rate-limited sign-in · validation shared between client and server
+
 ## Architecture
 
 ```
 node server.js
      │
-     ├── /api/*   →  Express app (server/)      — auth, todos, trash
+     ├── /api/*   →  Express app (server/)      — auth, todos, trash, stats
      └── /*       →  Next.js handler (src/app/) — pages, assets, HMR
 ```
 
-Because the pages and the API share an origin there is no CORS layer, and the
-JWT session cookie is a plain same-site `HttpOnly` cookie. The browser calls the
-API with relative paths (`/api/todo`), so nothing has a hardcoded host or port.
+Pages and API share an origin, so there is no CORS layer and the JWT session
+cookie is a plain same-site `HttpOnly` cookie. The browser calls the API with
+relative paths — nothing has a hardcoded host or port.
 
 ## Layout
 
 ```
 server.js              custom server: connects to MongoDB, prepares Next, mounts Express at /api
 server/                the API
-  app.js               Express sub-app (helmet, cookies, body parsing, logging, error handling)
-  db.config.js         DatabaseConnection wrapper around mongoose
-  routes/              user, todo, trash routers
+  app.js               Express sub-app (helmet, cookies, parsing, logging, errors)
+  routes/              user, todo, trash, stats
   controller/          all Mongoose access
-  models/              User, Todo, Trash schemas
-  middleware/          auth, request logger, error handler, 404
-  wrapper/             async try/catch wrapper for route handlers
-  utils/               JWT + cookie helpers, console formatting
-src/                   the Next.js app
-  app/                 App Router pages (landing, login, register, dashboard/*)
-  components/          header/footer variants, sidebar, pagination
-  store/state.tsx      Zustand store
-  utils/               fetch wrappers, API paths, helpers
-  types/index.d.ts     ambient shared types
+  models/              User, Todo, Trash
+  middleware/          auth, validate, rate-limit, logger, error handler
+  validation/          zod schemas
+  __tests__/           API test suite
+src/
+  app/                 pages
+  components/ui/       the design system
+  components/todo/     cards, board, calendar, filters, charts
+  hooks/               data + filter + keyboard hooks
+  lib/                 api client, helpers, validation, dates
 ```
 
 ## Requirements
@@ -60,12 +82,15 @@ run `npm rebuild bcrypt` after approving it.
 ## Usage
 
 ```bash
-# development (Next.js in dev mode, hot reload)
+# development (hot reload)
 npm run dev
 
 # production
 npm run build
 npm start
+
+# API tests
+npm test
 
 # lint
 npm run lint
@@ -84,6 +109,17 @@ docker compose up --build
 docker compose watch
 ```
 
+## Tests
+
+`npm test` runs the API suite on Node's built-in test runner against an in-memory
+MongoDB, covering auth, per-user isolation, filtering, sorting, pagination,
+bulk operations, the trash round trip, recurrence, stats and rate limiting.
+
+```bash
+npm test                                   # downloads a mongod binary on first run
+MONGO_TEST_URL=mongodb://localhost:27017/todo-test npm test   # or use your own
+```
+
 ## API
 
 All routes are under `/api`. `/api/user/register` and `/api/user/login` are
@@ -97,16 +133,23 @@ public; everything else requires the session cookie (or an
 | POST | `/api/user/login` | sign in, sets the `token` cookie |
 | POST | `/api/user/logout` | clears the cookie |
 | GET | `/api/user/me` | current user |
-| PUT | `/api/user/update` | update name / status |
-| GET | `/api/todo?page=&limit=` | list own todos |
+| PUT | `/api/user/update` | update name / status / avatar |
+| PUT | `/api/user/preferences` | theme, default view, page size, density |
+| PUT | `/api/user/password` | change password |
+| GET | `/api/todo` | list — supports `page`, `limit`, `q`, `status`, `priority`, `tags`, `due`, `archived`, `pinned`, `sort`, `order` |
 | POST | `/api/todo` | create |
 | GET | `/api/todo/:id` | read one |
-| PUT | `/api/todo/:id` | update title / description / status |
+| PUT | `/api/todo/:id` | update |
 | DELETE | `/api/todo/:id` | delete, moving a copy to trash |
-| GET | `/api/trash?page=&limit=` | list trashed todos |
-| GET | `/api/trash/:id` | read one |
-| PUT | `/api/trash/:id` | recover back into todos |
+| POST | `/api/todo/:id/duplicate` | duplicate |
+| PATCH | `/api/todo/bulk` | bulk status/priority/tag/pin/archive/delete |
+| PUT | `/api/todo/reorder` | persist manual order |
+| GET | `/api/trash` | list trashed todos |
+| PUT | `/api/trash/:id` | restore |
 | DELETE | `/api/trash/:id` | delete permanently |
+| DELETE | `/api/trash` | empty trash |
+| GET | `/api/stats` | analytics aggregation |
+| GET | `/api/tags` | tags with usage counts |
 
 ## License
 
@@ -118,6 +161,8 @@ You are free to use this code for your own projects, modify it, or publish it
 anywhere. Please give me credit if you use it. (@Thedevelop3r), thanks.
 
 ## Images
+
+> These screenshots predate the redesign and will be refreshed.
 
 ### home
 
@@ -143,15 +188,9 @@ anywhere. Please give me credit if you use it. (@Thedevelop3r), thanks.
 
 ![Login](project-screenshots/login.png)
 
-### profile
-
-![Profile](project-screenshots/profile.png)
-
 ### todo
 
 ![Todo-Preview](project-screenshots/todo-preview.png)
-![Todo-Preview-2](project-screenshots/todo-preview-2.png)
-![Todo-Preview-3](project-screenshots/todo-preview-3.png)
 
 ### trash
 
