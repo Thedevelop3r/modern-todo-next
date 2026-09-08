@@ -1,28 +1,31 @@
 const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
 const { TrashController } = require("../controller");
-// const { Tools } = require("../utils/tools");
+const { validate } = require("../middleware");
+const { listQuerySchema } = require("../validation/schemas");
 
 router.get(
   "/",
+  validate(listQuerySchema, "query"),
   asyncTryCatchWrapper(async (req, res) => {
-    const { page, limit } = req.query;
-    const userId = req.user._id;
-    const { data, meta } = await TrashController.getTodos({ page, limit, limit: limit }, userId);
+    const { data, meta } = await TrashController.getTodos(req.validatedQuery, req.user._id);
     res.status(200).json({ data, meta });
+  })
+);
+
+// Before /:id so "empty" is not read as an id.
+router.delete(
+  "/",
+  asyncTryCatchWrapper(async (req, res) => {
+    const result = await TrashController.empty(req.user._id);
+    res.status(200).json(result);
   })
 );
 
 router.get(
   "/:id",
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user._id;
-    const todo = await TrashController.getTodoById({ todoId: id, userId });
-    if (!todo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
+    const todo = await TrashController.getTodoById({ todoId: req.params.id, userId: req.user._id });
     res.status(200).json(todo);
   })
 );
@@ -30,29 +33,16 @@ router.get(
 router.put(
   "/:id",
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const { body } = req;
-    const userId = req.user._id;
-    const updatedTodo = await TrashController.recover({ todoId: id, userId });
-    if (!updatedTodo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
-    res.status(200).json(updatedTodo);
+    const recovered = await TrashController.recover({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(recovered);
   })
 );
 
 router.delete(
   "/:id",
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user._id;
-    const deletedTodo = await TrashController.destroy({ todoId: id, userId });
-    if (!deletedTodo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
-    res.status(200).json(deletedTodo);
+    const deleted = await TrashController.destroy({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(deleted);
   })
 );
 

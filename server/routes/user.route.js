@@ -2,28 +2,39 @@ const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
 const { UserController } = require("../controller");
 const { Tools } = require("../utils/tools");
-const { auth } = require("../middleware");
+const { auth, validate, loginLimiter, registerLimiter } = require("../middleware");
+const { ApiError } = require("../utils/api-error");
+const {
+  registerSchema,
+  loginSchema,
+  profileSchema,
+  preferencesSchema,
+  changePasswordSchema,
+} = require("../validation/schemas");
 
 const User = new UserController();
 
 router.post(
   "/register",
+  registerLimiter,
+  validate(registerSchema),
   asyncTryCatchWrapper(async (req, res) => {
     const newUser = await User.create(req.body);
-    newUser.password = undefined;
-    delete newUser.password;
     res.status(201).json(newUser);
   })
 );
 
 router.post(
   "/login",
+  loginLimiter,
+  validate(loginSchema),
   asyncTryCatchWrapper(async (req, res) => {
     const user = await User.login(req.body);
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    // Same message either way - do not reveal whether the email exists.
+    if (!user) throw ApiError.badRequest("Invalid email or password");
+
     const token = Tools.User.generateToken(user);
     Tools.User.setCookie(res, token);
-    delete user.password;
     res.status(200).json(user);
   })
 );
@@ -32,36 +43,46 @@ router.get(
   "/me",
   auth,
   asyncTryCatchWrapper(async (req, res) => {
-    const user = req.user;
-    res.status(200).json(user);
+    res.status(200).json(req.user);
   })
 );
 
-// /update
 router.put(
   "/update",
   auth,
+  validate(profileSchema),
   asyncTryCatchWrapper(async (req, res) => {
     const user = await User.update(req.user._id, req.body);
     res.status(200).json(user);
   })
 );
 
+router.put(
+  "/preferences",
+  auth,
+  validate(preferencesSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const user = await User.updatePreferences(req.user._id, req.body);
+    res.status(200).json(user);
+  })
+);
+
+router.put(
+  "/password",
+  auth,
+  validate(changePasswordSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const result = await User.changePassword(req.user._id, req.body);
+    res.status(200).json(result);
+  })
+);
+
 router.post(
   "/logout",
   asyncTryCatchWrapper(async (req, res) => {
-    const token = req.cookies.token;
-    if (!token) return res.status(400).json({ message: "You are not authorized to perform this action!" });
     Tools.User.RemoveCookie(res);
     res.status(200).json({ message: "Logout success" });
   })
 );
 
-// only admin route
-// router.get("/all", async (req, res) => {
-//   const users = await User.getAllUsers(req.query);
-//   res.status(200).json(users);
-// });
-
-// export
 module.exports = { userRouter: router };

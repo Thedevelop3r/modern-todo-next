@@ -1,54 +1,67 @@
 const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
 const { TodoController } = require("../controller");
-// const { Tools } = require("../utils/tools");
+const { validate } = require("../middleware");
+const { createTodoSchema, updateTodoSchema, listQuerySchema, bulkSchema, reorderSchema } = require("../validation/schemas");
 
 router.get(
   "/",
+  validate(listQuerySchema, "query"),
   asyncTryCatchWrapper(async (req, res) => {
-    const { page, limit } = req.query;
-    const userId = req.user._id;
-    const { data, meta } = await TodoController.getTodos({ page, limit, limit: limit }, userId);
+    const { data, meta } = await TodoController.getTodos(req.validatedQuery, req.user._id);
     res.status(200).json({ data, meta });
+  })
+);
+
+// Declared before /:id so "bulk" and "reorder" are not read as ids.
+router.patch(
+  "/bulk",
+  validate(bulkSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const result = await TodoController.bulk({ ...req.body, userId: req.user._id });
+    res.status(200).json(result);
+  })
+);
+
+router.put(
+  "/reorder",
+  validate(reorderSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const result = await TodoController.reorder({ ids: req.body.ids, userId: req.user._id });
+    res.status(200).json(result);
+  })
+);
+
+router.post(
+  "/:id/duplicate",
+  asyncTryCatchWrapper(async (req, res) => {
+    const todo = await TodoController.duplicate({ todoId: req.params.id, userId: req.user._id });
+    res.status(201).json(todo);
   })
 );
 
 router.get(
   "/:id",
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user._id;
-    const todo = await TodoController.getTodoById({ todoId: id, userId });
-    if (!todo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
+    const todo = await TodoController.getTodoById({ todoId: req.params.id, userId: req.user._id });
     res.status(200).json(todo);
   })
 );
 
 router.post(
   "/",
+  validate(createTodoSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const { body } = req;
-    const userId = req.user._id;
-    const userName = req.user.name;
-    const newTodo = await TodoController.create({ body, userId });
+    const newTodo = await TodoController.create({ body: req.body, userId: req.user._id });
     res.status(201).json(newTodo);
   })
 );
 
 router.put(
   "/:id",
+  validate(updateTodoSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const { body } = req;
-    const userId = req.user._id;
-    const updatedTodo = await TodoController.update({ todoId: id, body, userId });
-    if (!updatedTodo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
+    const updatedTodo = await TodoController.update({ todoId: req.params.id, body: req.body, userId: req.user._id });
     res.status(200).json(updatedTodo);
   })
 );
@@ -56,13 +69,7 @@ router.put(
 router.delete(
   "/:id",
   asyncTryCatchWrapper(async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user._id;
-    const deletedTodo = await TodoController.destroy({ todoId: id, userId });
-    if (!deletedTodo) {
-      res.status(404).json({ message: "Todo not found" });
-      return;
-    }
+    const deletedTodo = await TodoController.destroy({ todoId: req.params.id, userId: req.user._id });
     res.status(200).json(deletedTodo);
   })
 );
