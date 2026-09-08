@@ -1,0 +1,4 @@
+{
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["server/**", "next.config.js", "postcss.config.js"]
+}
