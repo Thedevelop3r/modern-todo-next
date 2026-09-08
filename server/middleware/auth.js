@@ -15,8 +15,8 @@ const auth = async (req, res, next) => {
   }
 
   console.log("\n--------------1---------------------\n");
-  console.log("** AUTH MIDDLEWARE ** -> authHeader:", authHeader, "cookieHeader:", cookieHeader);
-  console.log("** AUTH MIDDLEWARE ** -> token:", token);
+  console.log("** AUTH MIDDLEWARE ** -> authHeader:", Boolean(authHeader), "cookieHeader:", Boolean(cookieHeader));
+  console.log("** AUTH MIDDLEWARE ** -> token present:", Boolean(token));
   console.log("-----------------------------------");
 
   try {

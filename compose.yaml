@@ -1,5 +1,4 @@
 services:
-
   mongodb:
     container_name: mongodb
     image: mongo:5.0.2
@@ -18,11 +17,8 @@ services:
     volumes:
       - db:/data/db
 
-
   app:
-    container_name: modern-todo-application
-
-    user: root
+    container_name: modern-todo
 
     build: .
 
@@ -34,19 +30,16 @@ services:
     env_file:
       - .env
 
+    # One port for the whole application: pages and /api alike.
     ports:
-      - "${NODE_LOCAL_PORT}:${NODE_DOCKER_PORT}"
-
-    command: yarn run dev
+      - "${PORT}:${PORT}"
 
     environment:
-      DB_HOST: mongodb
-      DB_USER: ${MONGO_INITDB_ROOT_USERNAME}
-      DB_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      DB_PORT: ${MONGODB_DOCKER_PORT}
       MONGO_URL: ${MONGO_URL}
+      JWT_SECRET: ${JWT_SECRET}
       NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      HOSTNAME: 0.0.0.0
 
     stdin_open: true
     tty: true
@@ -58,10 +51,10 @@ services:
           target: /app
           ignore:
             - node_modules/
+            - .next/
 
         - path: package.json
           action: rebuild
-
 
 volumes:
   db:

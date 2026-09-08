@@ -1,18 +1,20 @@
 import { API_ENDPOINT } from "./api_endpoint";
 
+// The API lives at a same-origin path, so requests are built as relative URLs
+// rather than through `new URL()`, which needs an absolute base.
+const withQuery = (path: string, filter: TodoFilter) => {
+  const query = new URLSearchParams();
+  Object.keys(filter).forEach((key) => query.append(key, String(filter[key])));
+  const search = query.toString();
+  return search ? `${path}?${search}` : path;
+};
+
 const getAllTodos = async ({ filter }: { filter: TodoFilter }) => {
   const options: RequestInit = {
     method: "GET",
     credentials: "include",
   };
-  const url = new URL(API_ENDPOINT.todo);
-  const query = Object.keys(filter)
-    .map((key) => {
-      return key + "=" + filter[key];
-    })
-    .join("&");
-  url.search = query;
-  return fetch(url, options);
+  return fetch(withQuery(API_ENDPOINT.todo, filter), options);
 };
 
 const refreshTodos = async ({ filter }: { filter: TodoFilter }) => {
@@ -40,14 +42,7 @@ const getTrash = async ({ filter }: { filter: TodoFilter }) => {
     method: "GET",
     credentials: "include",
   };
-  const url = new URL(API_ENDPOINT.trash);
-  const query = Object.keys(filter)
-    .map((key) => {
-      return key + "=" + filter[key];
-    })
-    .join("&");
-  url.search = query;
-  return fetch(url, options);
+  return fetch(withQuery(API_ENDPOINT.trash, filter), options);
 };
 const recoverTrashTodo = async (todoId?: string) => {
   return fetch(`${API_ENDPOINT.trash}/${todoId}`, {

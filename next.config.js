@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
 
-// content security policy
-
-// allowed domains
-
-const allowedDomains = ["http://localhost:3000", "http://localhost:4000"];
+// The API is served from the same origin as the pages (see server.js), so the
+// policy below no longer needs to allow a separate backend host.
 
 const securityHeaders = [
   {
@@ -33,11 +30,8 @@ const securityHeaders = [
   },
   {
     key: "Content-Security-Policy",
-    value: `default-src 'self'; script-src 'self' ${allowedDomains.join(" ")} 'unsafe-inline' 'unsafe-eval'; style-src 'self' ${allowedDomains.join(
-      " "
-    )} 'unsafe-inline'; img-src 'self' ${allowedDomains.join(" ")} data: blob:; font-src 'self' ${allowedDomains.join(" ")} data:; connect-src 'self' ${allowedDomains.join(
-      " "
-    )}; frame-src 'self' ${allowedDomains.join(" ")};`,
+    value:
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self';",
   },
 ];
 
