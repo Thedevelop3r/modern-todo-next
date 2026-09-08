@@ -1,37 +1,22 @@
 const { Mongoose } = require("../db.config");
+const { todoFields } = require("./Todo.model");
 const { Schema, model } = Mongoose;
 
+// Same fields as Todo plus a pointer back to the original document.
 const trashSchema = new Schema(
   {
-    title: {
-      required: true,
-      type: String,
-      maxlength: 100,
-    },
+    ...todoFields,
     todoId: {
       type: Schema.Types.ObjectId,
       ref: "Todo",
       required: true,
     },
-    description: {
-      type: String,
-      maxlength: 1500,
-    },
-    ownerId: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    status: {
-      type: String,
-      enum: ["pending", "progress", "completed"],
-      default: "pending",
-    },
-    createdAt: Date,
-    updatedAt: Date,
+    deletedAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
+
+trashSchema.index({ ownerId: 1, deletedAt: -1 });
 
 const Trash = model("Trash", trashSchema);
 

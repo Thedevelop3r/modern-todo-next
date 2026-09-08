@@ -4,31 +4,47 @@ const bcrypt = require("bcrypt");
 const { Mongoose } = require("../db.config");
 const { Schema, model } = Mongoose;
 
-const userSchema = new Schema({
-  name: String,
-  email: {
-    type: String,
-    unique: true,
-    required: true,
+const preferencesSchema = new Schema(
+  {
+    theme: { type: String, enum: ["light", "dark", "system"], default: "system" },
+    defaultView: { type: String, enum: ["list", "grid", "board", "calendar"], default: "list" },
+    pageSize: { type: Number, min: 5, max: 100, default: 10 },
+    density: { type: String, enum: ["comfortable", "compact"], default: "comfortable" },
   },
-  password: {
-    type: String,
-    minlength: 6,
-    required: true,
+  { _id: false }
+);
+
+const userSchema = new Schema(
+  {
+    name: { type: String, trim: true, maxlength: 50 },
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      minlength: 6,
+      required: true,
+    },
+    role: {
+      type: String,
+      enum: ["admin", "user"],
+      default: "user",
+    },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
+    },
+    avatar: { type: String, default: "initials", maxlength: 64 },
+    preferences: { type: preferencesSchema, default: () => ({}) },
+    lastLoginAt: { type: Date, default: null },
   },
-  role: {
-    type: String,
-    enum: ["admin", "user"],
-    default: "user",
-  },
-  status: {
-    type: String,
-    enum: ["active", "inactive"],
-    default: "active",
-  },
-  createdAt: Date,
-  updatedAt: Date,
-}, { timestamps: true });
+  { timestamps: true }
+);
 
 // comparePassword
 userSchema.methods.comparePassword = async function (password) {
@@ -44,6 +60,13 @@ userSchema.pre("save", async function (next) {
   this.password = hash;
   next();
 });
+
+/** Never let the hash leave the process. */
+userSchema.methods.toSafeJSON = function () {
+  const obj = this.toObject({ versionKey: false });
+  delete obj.password;
+  return obj;
+};
 
 const User = model("User", userSchema);
 
