@@ -1,96 +1,53 @@
 import { create } from "zustand";
 
-const user: User = {
-  name: "",
-  email: "",
-  token: "",
-  isLoggedIn: false,
+/**
+ * UI-only state. Server data lives in the TanStack Query cache (src/hooks/*) -
+ * keeping todos in two places is what made the old store drift out of sync.
+ */
+type UiState = {
+  view: TodoView;
+  setView: (view: TodoView) => void;
+
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+
+  mobileNavOpen: boolean;
+  setMobileNavOpen: (open: boolean) => void;
+
+  commandOpen: boolean;
+  setCommandOpen: (open: boolean) => void;
+
+  shortcutsOpen: boolean;
+  setShortcutsOpen: (open: boolean) => void;
+
+  /** Ids selected for bulk actions on the dashboard. */
+  selection: string[];
+  toggleSelected: (id: string) => void;
+  selectMany: (ids: string[]) => void;
+  clearSelection: () => void;
 };
 
-const todos: Todos = [];
-const trash: Todos = [];
+export const useUiStore = create<UiState>((set, get) => ({
+  view: "list",
+  setView: (view) => set({ view }),
 
-const useStore = create<StoreState>((set, get) => ({
-  user: { ...user },
-  todos: [...todos],
-  trash: [...trash],
-  todoPagination: {
-    page: 1,
-    limit: 10,
-  },
-  todoMeta: {
-    totalRecords: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  },
-  trashPagination: {
-    page: 1,
-    limit: 10,
-  },
-  trashMeta: {
-    totalRecords: 0,
-    page: 1,
-    limit: 10,
-    totalPages: 0,
-  },
+  sidebarCollapsed: false,
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-  updateTodoMeta: (todoMeta: TodoMeta) => {
-    set((state: StoreState) => {
-      return { ...state, todoMeta };
-    });
-  },
+  mobileNavOpen: false,
+  setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
 
-  updateTrashPagination: ({ page, limit }: { page: number; limit: number }) => {
-    set((state: StoreState) => {
-      return { ...state, trashPagination: { page, limit } };
-    });
-  },
+  commandOpen: false,
+  setCommandOpen: (commandOpen) => set({ commandOpen }),
 
-  updateTrash: ({ trash, trashMeta }: { trash: Todos; trashMeta?: TodoMeta | undefined }) => {
-    set((state: StoreState) => {
-      const updatedTrash = [...trash].sort((a, b) => {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return dateA > dateB ? -1 : 1;
-      });
-      if (trashMeta) {
-        return { ...state, trash: updatedTrash, trashMeta };
-      }
-      return { ...state, trash: trash ? updatedTrash : state.trash };
-    });
-  },
+  shortcutsOpen: false,
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
 
-  updatePagination: ({ page, limit }: { page: number; limit: number }) => {
-    set((state: StoreState) => {
-      return { ...state, todoPagination: { page, limit } };
-    });
-  },
-
-  updateUser: ({ user, isLoggedIn }: { user: User | null; isLoggedIn: Boolean | null }) => {
-    set((state: StoreState) => {
-      let updatedUser = { ...state.user };
-      if (user) {
-        updatedUser = { ...updatedUser, ...user };
-        isLoggedIn ? (updatedUser.isLoggedIn = true) : (updatedUser.isLoggedIn = false);
-      }
-      console.log(updatedUser);
-      return { ...state, user: updatedUser };
-    });
-  },
-  updateTodos: ({ todos, todoMeta }: { todos: Todos; todoMeta?: TodoMeta | undefined }) => {
-    set((state: StoreState) => {
-      const updatedTodos = [...todos].sort((a, b) => {
-        const dateA = new Date(a.createdAt);
-        const dateB = new Date(b.createdAt);
-        return dateA > dateB ? -1 : 1;
-      });
-      if (todoMeta) {
-        return { ...state, todos: updatedTodos, todoMeta };
-      }
-      return { ...state, todos: todos ? updatedTodos : state.todos };
-    });
-  },
+  selection: [],
+  toggleSelected: (id) =>
+    set((s) => ({
+      selection: s.selection.includes(id) ? s.selection.filter((x) => x !== id) : [...s.selection, id],
+    })),
+  selectMany: (ids) => set({ selection: ids }),
+  clearSelection: () => set({ selection: [] }),
 }));
-
-export { useStore };
