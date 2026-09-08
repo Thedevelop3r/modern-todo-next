@@ -91,7 +91,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2">
+      {/* Announced politely: a toast reports what just happened, it does not
+          interrupt what the user is doing. */}
+      <div
+        aria-live="polite"
+        aria-relevant="additions"
+        className="pointer-events-none fixed bottom-4 right-4 z-[100] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-2"
+      >
         <AnimatePresence initial={false}>
           {toasts.map((entry) => (
             <motion.div

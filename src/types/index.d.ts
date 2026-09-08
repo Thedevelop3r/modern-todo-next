@@ -1,9 +1,10 @@
 type TodoStatus = "pending" | "progress" | "completed";
 type TodoPriority = "none" | "low" | "medium" | "high" | "urgent";
 type TodoRecurrence = "none" | "daily" | "weekly" | "monthly";
-type TodoView = "list" | "grid" | "board" | "calendar";
+type TodoView = "list" | "grid" | "board" | "calendar" | "table";
 type ThemePreference = "light" | "dark" | "system";
 type Density = "comfortable" | "compact";
+type UiScale = "small" | "normal" | "large";
 
 type Subtask = {
   _id?: string;
@@ -16,6 +17,7 @@ type Preferences = {
   defaultView: TodoView;
   pageSize: number;
   density: Density;
+  uiScale: UiScale;
 };
 
 type User = {
@@ -27,8 +29,110 @@ type User = {
   avatar?: string;
   preferences?: Preferences;
   lastLoginAt?: string;
+  /** Only the flag reaches the client - the secret never leaves the server. */
+  twoFactor?: { enabled: boolean; enabledAt?: string | null };
   createdAt?: string;
   updatedAt?: string;
+};
+
+/** One signed-in device, as listed by the security page. */
+type Session = {
+  id: string;
+  ip?: string;
+  userAgent?: string;
+  createdAt: string;
+  lastSeenAt: string;
+  current?: boolean;
+};
+
+type AuditEntry = {
+  _id?: string;
+  action: string;
+  ip?: string;
+  userAgent?: string;
+  meta?: Record<string, unknown>;
+  createdAt: string;
+};
+
+/** What an import would do (dry run) or did do (the real thing). */
+type ImportSummary = {
+  dryRun: boolean;
+  total: number;
+  valid: number;
+  invalid: number;
+  duplicates: number;
+  willCreate: number;
+  created: number;
+  projectsCreated: number;
+  rejected: Array<{ line: number; title: string; issues: string[] }>;
+  preview: Array<{
+    title: string;
+    status: TodoStatus;
+    priority: TodoPriority;
+    dueDate?: string | null;
+    project?: string | null;
+  }>;
+};
+
+type ProjectColor =
+  | "slate" | "red" | "orange" | "amber" | "green"
+  | "teal" | "sky" | "indigo" | "violet" | "pink";
+
+type Project = {
+  _id?: string;
+  name: string;
+  description?: string;
+  color: ProjectColor;
+  archived?: boolean;
+  order?: number;
+  todoCount?: number;
+  completedCount?: number;
+  estimateTotal?: number;
+  timeSpentTotal?: number;
+  createdAt?: string;
+};
+
+type TodoComment = {
+  _id?: string;
+  todoId?: string;
+  body: string;
+  editedAt?: string | null;
+  createdAt?: string;
+};
+
+type Activity = {
+  _id?: string;
+  todoId?: string | null;
+  action: string;
+  field?: string | null;
+  from?: unknown;
+  to?: unknown;
+  meta?: Record<string, unknown> | null;
+  createdAt?: string;
+};
+
+type SavedView = {
+  _id?: string;
+  name: string;
+  query: Record<string, unknown>;
+  icon?: string;
+  pinned?: boolean;
+  order?: number;
+};
+
+type TodoTemplate = {
+  _id?: string;
+  name: string;
+  title: string;
+  description?: string;
+  priority?: TodoPriority;
+  tags?: string[];
+  subtasks?: Subtask[];
+  estimate?: number | null;
+  projectId?: string | null;
+  recurrence?: TodoRecurrence;
+  dueInDays?: number | null;
+  useCount?: number;
 };
 
 type Todo = {
@@ -45,6 +149,12 @@ type Todo = {
   archived?: boolean;
   order?: number;
   recurrence?: TodoRecurrence;
+  projectId?: string | null;
+  startDate?: string | null;
+  estimate?: number | null;
+  timeSpent?: number;
+  timerStartedAt?: string | null;
+  blockedBy?: string[];
   ownerId?: string;
   todoId?: string;
   createdAt?: string;
@@ -70,7 +180,9 @@ type TodoFilter = {
   tags?: string[];
   due?: "any" | "overdue" | "today" | "week" | "none";
   archived?: boolean;
-  sort?: "createdAt" | "updatedAt" | "dueDate" | "priority" | "title";
+  projectId?: string;
+  blocked?: boolean;
+  sort?: "createdAt" | "updatedAt" | "dueDate" | "startDate" | "priority" | "title" | "estimate" | "order";
   order?: "asc" | "desc";
 };
 
@@ -91,6 +203,9 @@ type StatsSummary = {
   pinned: number;
   completionRate: number;
   currentStreak: number;
+  estimatedPoints: number;
+  completedPoints: number;
+  timeSpent: number;
 };
 
 type Stats = {

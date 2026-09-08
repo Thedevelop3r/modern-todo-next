@@ -25,7 +25,26 @@ type UiState = {
   toggleSelected: (id: string) => void;
   selectMany: (ids: string[]) => void;
   clearSelection: () => void;
+
+  /**
+   * Reversible actions, newest first. Entries hold a closure, so the stack is
+   * memory-only - a reload clears it, which is the honest behaviour.
+   */
+  undoStack: UndoEntry[];
+  pushUndo: (entry: Omit<UndoEntry, "id" | "at">) => void;
+  popUndo: () => UndoEntry | undefined;
+  removeUndo: (id: string) => void;
+  clearUndo: () => void;
 };
+
+export type UndoEntry = {
+  id: string;
+  label: string;
+  at: number;
+  undo: () => void | Promise<void>;
+};
+
+const UNDO_MAX = 10;
 
 export const useUiStore = create<UiState>((set, get) => ({
   view: "list",
@@ -50,4 +69,21 @@ export const useUiStore = create<UiState>((set, get) => ({
     })),
   selectMany: (ids) => set({ selection: ids }),
   clearSelection: () => set({ selection: [] }),
+
+  undoStack: [],
+  pushUndo: (entry) =>
+    set((s) => ({
+      undoStack: [
+        { ...entry, id: Math.random().toString(36).slice(2), at: Date.now() },
+        ...s.undoStack,
+      ].slice(0, UNDO_MAX),
+    })),
+  popUndo: () => {
+    const [top, ...rest] = get().undoStack;
+    if (!top) return undefined;
+    set({ undoStack: rest });
+    return top;
+  },
+  removeUndo: (id) => set((s) => ({ undoStack: s.undoStack.filter((e) => e.id !== id) })),
+  clearUndo: () => set({ undoStack: [] }),
 }));

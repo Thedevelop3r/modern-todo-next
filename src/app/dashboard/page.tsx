@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
-import { CalendarDays, CheckSquare, Columns3, LayoutGrid, List, Plus, RotateCw } from "lucide-react";
+import { CalendarDays, CheckSquare, Columns3, LayoutGrid, List, Pencil, Plus, RotateCw, Table2 } from "lucide-react";
 import {
   Button,
   ConfirmDialog,
@@ -18,6 +19,13 @@ import { BulkBar, type BulkAction } from "@/components/todo/BulkBar";
 import { TodoBoard } from "@/components/todo/TodoBoard";
 import { TodoCalendar } from "@/components/todo/TodoCalendar";
 import { Pagination } from "@/components/todo/Pagination";
+import { QuickAdd } from "@/components/todo/QuickAdd";
+import { SavedViewsMenu } from "@/components/todo/SavedViews";
+import { BulkEditModal } from "@/components/todo/BulkEditModal";
+import { SortableTodoList } from "@/components/todo/SortableTodoList";
+import { TodoTable } from "@/components/todo/TodoTable";
+import { QuickLook } from "@/components/todo/QuickLook";
+import { OnboardingCard } from "@/components/todo/OnboardingCard";
 import { useTodoFilters } from "@/hooks/useFilters";
 import { useMe } from "@/hooks/useAuth";
 import {
@@ -28,6 +36,7 @@ import {
   useTodos,
   useUpdateTodo,
 } from "@/hooks/useTodos";
+import { useListNavigation } from "@/hooks/useListNavigation";
 import { useUiStore } from "@/store/state";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +45,7 @@ const VIEW_OPTIONS = [
   { value: "grid" as const, label: "Grid", icon: <LayoutGrid className="h-3.5 w-3.5" /> },
   { value: "board" as const, label: "Board", icon: <Columns3 className="h-3.5 w-3.5" /> },
   { value: "calendar" as const, label: "Calendar", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+  { value: "table" as const, label: "Table", icon: <Table2 className="h-3.5 w-3.5" /> },
 ];
 
 const NEXT_STATUS: Record<TodoStatus, TodoStatus> = {
@@ -45,10 +55,11 @@ const NEXT_STATUS: Record<TodoStatus, TodoStatus> = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const toast = useToast();
   const { data: user } = useMe();
   const { filter, setFilter, reset, activeCount } = useTodoFilters(user?.preferences?.pageSize || 10);
-  const { view, setView, selection, toggleSelected, selectMany, clearSelection } = useUiStore();
+  const { view, setView, selection, toggleSelected, selectMany, clearSelection, pushUndo } = useUiStore();
 
   // Board and calendar need the whole set, not one page of it.
   const isWholeSetView = view === "board" || view === "calendar";
@@ -62,8 +73,11 @@ export default function DashboardPage() {
   const bulk = useBulkTodos();
 
   const [confirmBulkDelete, setConfirmBulkDelete] = React.useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = React.useState(false);
+  const [previewId, setPreviewId] = React.useState<string | null>(null);
 
-  const todos = data?.data || [];
+  // Memoised so the keyboard-navigation ids do not change identity every render.
+  const todos = React.useMemo(() => data?.data || [], [data]);
   const meta = data?.meta;
   const compact = user?.preferences?.density === "compact";
 
@@ -75,6 +89,22 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  /**
+   * Deleting answers with the todo, not the trash row, so restoring means
+   * finding the rows by their original ids. Shared by the toast action and the
+   * undo stack.
+   */
+  const restoreFromTrash = React.useCallback(
+    async (ids: string[]) => {
+      const { api } = await import("@/lib/api");
+      const trash = await api.listTrash({ limit: 100 });
+      const entries = trash.data.filter((entry) => ids.includes(entry.todoId as string));
+      if (!entries.length) throw new Error("Nothing left to restore");
+      await Promise.all(entries.map((entry) => recoverTrash.mutateAsync(entry._id as string)));
+    },
+    [recoverTrash]
+  );
+
   const actions: TodoCardActions = {
     onToggleStatus: (todo) => {
       const status = NEXT_STATUS[todo.status || "pending"];
@@ -83,6 +113,11 @@ export default function DashboardPage() {
         {
           onError: (error) => toast.error("Could not update status", { description: (error as Error).message }),
           onSuccess: () => {
+            const previous = todo.status || "pending";
+            pushUndo({
+              label: `"${todo.title}" set to ${status}`,
+              undo: () => updateTodo.mutate({ id: todo._id as string, input: { status: previous } }),
+            });
             if (status === "completed" && todo.recurrence !== "none") {
               toast.success("Completed", { description: "The next occurrence has been scheduled." });
             }
@@ -92,20 +127,33 @@ export default function DashboardPage() {
     },
 
     onTogglePin: (todo) => {
-      updateTodo.mutate({ id: todo._id as string, input: { pinned: !todo.pinned } });
+      updateTodo.mutate(
+        { id: todo._id as string, input: { pinned: !todo.pinned } },
+        {
+          onSuccess: () =>
+            pushUndo({
+              label: todo.pinned ? `Unpinned "${todo.title}"` : `Pinned "${todo.title}"`,
+              undo: () => updateTodo.mutate({ id: todo._id as string, input: { pinned: todo.pinned } }),
+            }),
+        }
+      );
     },
 
     onArchive: (todo) => {
       updateTodo.mutate(
         { id: todo._id as string, input: { archived: !todo.archived } },
         {
-          onSuccess: () =>
+          onSuccess: () => {
+            const revert = () =>
+              updateTodo.mutate({ id: todo._id as string, input: { archived: todo.archived } });
+            pushUndo({
+              label: todo.archived ? `Unarchived "${todo.title}"` : `Archived "${todo.title}"`,
+              undo: revert,
+            });
             toast.success(todo.archived ? "Restored from archive" : "Archived", {
-              action: {
-                label: "Undo",
-                onClick: () => updateTodo.mutate({ id: todo._id as string, input: { archived: todo.archived } }),
-              },
-            }),
+              action: { label: "Undo", onClick: revert },
+            });
+          },
         }
       );
     },
@@ -119,25 +167,17 @@ export default function DashboardPage() {
 
     onDelete: (todo) => {
       deleteTodo.mutate(todo._id as string, {
-        onSuccess: (trashed) =>
+        onSuccess: () => {
+          const restore = () => restoreFromTrash([todo._id as string]);
+          pushUndo({ label: `Deleted "${todo.title}"`, undo: restore });
           toast.success("Moved to trash", {
             description: todo.title,
             action: {
-              // The delete response carries the todo; recovering needs the
-              // trash record, so look it up by the original id.
               label: "Undo",
-              onClick: async () => {
-                try {
-                  const { api } = await import("@/lib/api");
-                  const trash = await api.listTrash({ limit: 50 });
-                  const entry = trash.data.find((t) => t.todoId === todo._id);
-                  if (entry?._id) recoverTrash.mutate(entry._id);
-                } catch {
-                  toast.error("Could not restore the todo");
-                }
-              },
+              onClick: () => restore().catch(() => toast.error("Could not restore the todo")),
             },
-          }),
+          });
+        },
         onError: (error) => toast.error("Could not delete", { description: (error as Error).message }),
       });
     },
@@ -148,15 +188,62 @@ export default function DashboardPage() {
     },
   };
 
+  /**
+   * The reverse of a bulk action. Toggle-shaped actions have a plain inverse;
+   * value-shaped ones are grouped by the value each todo had before and
+   * replayed one group per request, because the API takes one action at a time.
+   */
+  const bulkUndo = (action: string, value: unknown, before: Todos) => {
+    const ids = before.map((todo) => todo._id as string);
+    if (!ids.length) return null;
+
+    const inverse: Record<string, string> = {
+      pin: "unpin",
+      unpin: "pin",
+      archive: "unarchive",
+      unarchive: "archive",
+      tag: "untag",
+      untag: "tag",
+    };
+    if (inverse[action]) return () => bulk.mutate({ ids, action: inverse[action], value });
+
+    const previous = (todo: Todo) =>
+      action === "status" ? todo.status : action === "priority" ? todo.priority : todo.projectId ?? null;
+    if (!["status", "priority", "project"].includes(action)) return null;
+
+    const groups = new Map<unknown, string[]>();
+    before.forEach((todo) => {
+      const key = previous(todo) ?? null;
+      groups.set(key, [...(groups.get(key) || []), todo._id as string]);
+    });
+
+    return async () => {
+      for (const [groupValue, groupIds] of Array.from(groups)) {
+        await bulk.mutateAsync({ ids: groupIds, action, value: groupValue });
+      }
+    };
+  };
+
   const runBulk = ({ action, value }: BulkAction) => {
     if (action === "delete") {
       setConfirmBulkDelete(true);
       return;
     }
+    if (action === "edit") {
+      setBulkEditOpen(true);
+      return;
+    }
+
+    const before = todos.filter((todo) => selection.includes(todo._id as string));
+
     bulk.mutate(
       { ids: selection, action, value },
       {
         onSuccess: (result) => {
+          const undo = bulkUndo(action, value, before);
+          if (undo) {
+            pushUndo({ label: `${result.modified} todo${result.modified === 1 ? "" : "s"}: ${action}`, undo });
+          }
           toast.success(`${result.modified} todo${result.modified === 1 ? "" : "s"} updated`);
           clearSelection();
         },
@@ -166,10 +253,15 @@ export default function DashboardPage() {
   };
 
   const confirmDelete = () => {
+    const deleted = [...selection];
     bulk.mutate(
       { ids: selection, action: "delete" },
       {
         onSuccess: (result) => {
+          pushUndo({
+            label: `Deleted ${result.modified} todo${result.modified === 1 ? "" : "s"}`,
+            undo: () => restoreFromTrash(deleted),
+          });
           toast.success(`${result.modified} todo${result.modified === 1 ? "" : "s"} moved to trash`);
           clearSelection();
           setConfirmBulkDelete(false);
@@ -184,8 +276,25 @@ export default function DashboardPage() {
 
   const allSelected = todos.length > 0 && selection.length === todos.length;
 
+  // Keyboard navigation only makes sense where cards are stacked in one column.
+  const navIds = React.useMemo(
+    () => (view === "list" || view === "grid" ? todos.map((todo) => todo._id as string) : []),
+    [todos, view]
+  );
+
+  const { activeId } = useListNavigation({
+    ids: navIds,
+    enabled: navIds.length > 0 && !bulkEditOpen && !confirmBulkDelete,
+    previewOpen: Boolean(previewId),
+    onToggleSelect: toggleSelected,
+    onOpen: (id) => router.push(`/dashboard/todo/${id}`),
+    onPreview: (id) => setPreviewId((current) => (current === id ? null : id)),
+  });
+
   return (
     <div className="mx-auto max-w-6xl space-y-5">
+      <QuickAdd defaultProjectId={filter.projectId} />
+
       <FilterBar
         filter={filter}
         setFilter={setFilter}
@@ -193,6 +302,7 @@ export default function DashboardPage() {
         activeCount={activeCount}
         right={
           <div className="flex items-center gap-2">
+            <SavedViewsMenu filter={filter} activeCount={activeCount} />
             <SegmentedControl value={view} onChange={setView} options={VIEW_OPTIONS} />
             <Button variant="secondary" size="md" onClick={() => refetch()} disabled={isFetching}>
               <RotateCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
@@ -228,29 +338,21 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : todos.length === 0 ? (
-        <EmptyState
-          icon={<CheckSquare className="h-6 w-6" />}
-          title={activeCount > 0 ? "No todos match these filters" : "Nothing here yet"}
-          description={
-            activeCount > 0
-              ? "Try loosening or clearing the filters to see more."
-              : "Create your first todo and it will show up right here."
-          }
-          action={
-            activeCount > 0 ? (
+        // No todos at all is a different problem from no todos matching a filter.
+        activeCount > 0 ? (
+          <EmptyState
+            icon={<CheckSquare className="h-6 w-6" />}
+            title="No todos match these filters"
+            description="Try loosening or clearing the filters to see more."
+            action={
               <Button variant="secondary" onClick={reset}>
                 Clear filters
               </Button>
-            ) : (
-              <Link href="/dashboard/create-todo">
-                <Button>
-                  <Plus className="h-4 w-4" />
-                  New todo
-                </Button>
-              </Link>
-            )
-          }
-        />
+            }
+          />
+        ) : (
+          <OnboardingCard />
+        )
       ) : view === "board" ? (
         <TodoBoard
           todos={todos}
@@ -263,8 +365,33 @@ export default function DashboardPage() {
         />
       ) : view === "calendar" ? (
         <TodoCalendar todos={todos} />
+      ) : view === "table" ? (
+        <TodoTable
+          todos={todos}
+          filter={filter}
+          setFilter={setFilter}
+          selection={selection}
+          onToggleSelected={toggleSelected}
+          onSelectAll={() =>
+            allSelected ? clearSelection() : selectMany(todos.map((t) => t._id as string))
+          }
+        />
+      ) : view === "list" ? (
+        <SortableTodoList
+          todos={todos}
+          actions={actions}
+          query={filter.q}
+          compact={compact}
+          selection={selection}
+          activeId={activeId}
+          onToggleSelected={toggleSelected}
+          // Manual order only shows if the list is actually sorted by it.
+          onReordered={() => {
+            if (filter.sort !== "order") setFilter({ sort: "order", order: "asc" });
+          }}
+        />
       ) : (
-        <div className={cn("gap-3", view === "grid" ? "grid sm:grid-cols-2" : "flex flex-col")}>
+        <div className="grid gap-3 sm:grid-cols-2">
           <AnimatePresence mode="popLayout">
             {todos.map((todo) => (
               <TodoCard
@@ -275,6 +402,7 @@ export default function DashboardPage() {
                 compact={compact}
                 selectable
                 selected={selection.includes(todo._id as string)}
+                active={activeId === todo._id}
                 onSelectedChange={() => toggleSelected(todo._id as string)}
               />
             ))}
@@ -292,6 +420,19 @@ export default function DashboardPage() {
       )}
 
       <BulkBar count={selection.length} onClear={clearSelection} onAction={runBulk} busy={bulk.isPending} />
+
+      <QuickLook
+        todo={todos.find((todo) => todo._id === previewId)}
+        open={Boolean(previewId)}
+        onOpenChange={(open) => !open && setPreviewId(null)}
+      />
+
+      <BulkEditModal
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        ids={selection}
+        onDone={clearSelection}
+      />
 
       <ConfirmDialog
         open={confirmBulkDelete}

@@ -1,26 +1,63 @@
+const crypto = require("crypto");
+
 /**
- * One line per API request. Quiet in production and under test; passwords are
- * never written out.
+ * Request id + one structured line per request.
+ *
+ * Every request gets an id, echoed as `X-Request-Id` and attached as `req.id`,
+ * so a log line, an error response and a user's bug report can all be lined up.
+ * The line is written when the response finishes, so it can carry the status
+ * and the duration.
+ *
+ * Format follows the environment: JSON in production (machine-readable), a
+ * short human line in development, silence under test.
  */
-const ENABLED = process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
+const MODE = process.env.NODE_ENV === "production" ? "json" : process.env.NODE_ENV === "test" ? "off" : "pretty";
+
+/** Never log these, whatever route they arrive on. */
+const SECRET_FIELDS = ["password", "currentPassword", "newPassword", "code", "data", "secret"];
+
+function safeBody(body) {
+  if (!body || typeof body !== "object") return undefined;
+  const copy = { ...body };
+  SECRET_FIELDS.forEach((field) => delete copy[field]);
+  return Object.keys(copy).length ? copy : undefined;
+}
 
 async function checkinLogger(req, res, next) {
-  if (!ENABLED) return next();
+  req.id = req.headers["x-request-id"] || crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.id);
 
-  const ip = req.headers["x-forwarded-for"] || req?.socket?.remoteAddress;
-  const body = { ...(req.body || {}) };
-  delete body.password;
-  delete body.currentPassword;
-  delete body.newPassword;
+  if (MODE === "off") return next();
 
-  const extras = [
-    Object.keys(req.query || {}).length ? `query=${JSON.stringify(req.query)}` : "",
-    Object.keys(body).length ? `body=${JSON.stringify(body)}` : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const startedAt = process.hrtime.bigint();
 
-  console.log(`[${new Date().toISOString()}] ${ip} ${req.method} ${req.originalUrl} ${extras}`.trimEnd());
+  res.on("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    const entry = {
+      time: new Date().toISOString(),
+      level: res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info",
+      requestId: req.id,
+      method: req.method,
+      path: req.originalUrl,
+      status: res.statusCode,
+      durationMs: Math.round(durationMs * 10) / 10,
+      // Present only once `auth` has run, which is exactly when it is useful.
+      userId: req.user?._id ? String(req.user._id) : undefined,
+      ip: req.headers["x-forwarded-for"] || req?.socket?.remoteAddress,
+    };
+
+    if (MODE === "json") {
+      console.log(JSON.stringify(entry));
+      return;
+    }
+
+    const body = safeBody(req.body);
+    console.log(
+      `[${entry.time}] ${entry.requestId.slice(0, 8)} ${entry.method} ${entry.path} ` +
+        `${entry.status} ${entry.durationMs}ms${body ? ` body=${JSON.stringify(body)}` : ""}`
+    );
+  });
+
   next();
 }
 

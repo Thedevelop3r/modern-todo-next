@@ -158,3 +158,51 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Print. Chrome for the screen is dropped, colours are forced light, and cards
+ * become plain bordered blocks so a printed review is legible in black and white.
+ */
+@media print {
+  :root {
+    --bg: 255 255 255;
+    --surface: 255 255 255;
+    --surface-raised: 255 255 255;
+    --surface-sunken: 255 255 255;
+    --fg: 0 0 0;
+    --fg-muted: 60 60 60;
+    --fg-subtle: 110 110 110;
+    --border: 190 190 190;
+  }
+
+  header,
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  main {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl {
+    box-shadow: none !important;
+  }
+
+  a[href] {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* Never split a card across a page break. */
+  article,
+  section,
+  table {
+    break-inside: avoid;
+  }
+}

@@ -23,10 +23,14 @@ async function errorHandler(err, req, res, next) {
   }
 
   if (statusCode >= 500) {
-    console.error("[error]", err);
+    // The request id ties this stack to the access-log line for the same call.
+    console.error(JSON.stringify({ level: "error", requestId: req.id, message, stack: err.stack }));
   }
 
-  res.status(statusCode).json(details ? { message, details } : { message });
+  // Echoing the id gives a user something to quote in a bug report.
+  const payload = { message, requestId: req.id };
+  if (details) payload.details = details;
+  res.status(statusCode).json(payload);
 }
 
 module.exports = { errorHandler, ApiError };

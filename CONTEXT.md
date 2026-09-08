@@ -41,26 +41,39 @@ server.js              custom server: dotenv → mongo connect → next.prepare(
 server/                the API (CommonJS)
   app.js               Express sub-app mounted at /api
   db.config.js         DatabaseConnection wrapper around mongoose
-  routes/              index.js, user.route.js, todo.route.js, trash.route.js, stats.route.js
-  controller/          User, Todo, Trash, Stats
-  models/              User, Todo (exports shared `todoFields`), Trash
+  routes/              index.js, user.route.js, todo.route.js, trash.route.js, stats.route.js,
+                       project.route.js, library.route.js, account.route.js
+  controller/          User, Todo, Trash, Stats, Project, Activity, Library, Account, Security
+  models/              User, Todo (exports shared `todoFields`), Trash, Project, Comment,
+                       Activity, SavedView, Template, AuditLog
   middleware/          auth, validate, rate-limit, checkin-logger, error-handler, not-found
   validation/schemas.js  zod schemas — the CJS mirror of src/lib/validation.ts
-  utils/               api-error.js (ApiError), user.js (JWT+cookie), fancy.js, tools.js
+  utils/               api-error.js (ApiError), user.js (JWT+cookie), totp.js, csv.js,
+                       fancy.js, tools.js
   wrapper/             async-trycatch.js
-  __tests__/           helpers.js + api.test.js (39 tests) + rate-limit.test.js
+  __tests__/           helpers.js + api.test.js, rate-limit.test.js, structure.test.js,
+                       library.test.js, account.test.js, platform.test.js
 src/
   app/                 App Router pages (see §4)
   components/
     ui/                the design system — Button, Card, Input, Badge, Modal, Menu,
                        Toggle, Toast, Avatar, Feedback, Motion, ThemeToggle (+ index.ts barrel)
-    layout/            Sidebar, Topbar, PublicShell
+    layout/            Sidebar, Topbar, NotificationCentre, PublicShell
     todo/              TodoCard, TodoBits, FilterBar, BulkBar, TodoBoard,
-                       TodoCalendar, TodoForm, Pagination, charts.tsx
+                       TodoCalendar, TodoForm, Pagination, charts.tsx,
+                       QuickAdd, QuickLook, FocusTimer, SortableTodoList,
+                       TodoTable, BulkEditModal, SavedViews, ProjectPicker,
+                       TodoDetailPanels, Heatmap
     command/           CommandPalette, ShortcutsModal
-  hooks/               useAuth, useTodos, useFilters, useKeyboard
-  lib/                 api.ts (typed client), utils.ts (cn + helpers), validation.ts, date.ts
+  hooks/               useAuth, useTodos, useFilters, useKeyboard, useProjects,
+                       useLibrary, useProductivity, useReminders, useListNavigation
+  lib/                 api.ts (typed client), utils.ts (cn + helpers), validation.ts,
+                       date.ts, filters.ts (pure URL <-> filter), quickAdd.ts
+  __tests__/           frontend tests, run by node --test (see Testing)
   providers/           QueryClient + next-themes + Tooltip + Toast
+  app/manifest.ts      the PWA manifest (served at /manifest.webmanifest)
+scripts/               generate-icons.mjs - writes public/icon*.png|svg
+public/sw.js           service worker: shell caching, never touches /api
   store/state.tsx      Zustand — UI state ONLY
   types/index.d.ts     ambient global types
 ```
@@ -74,7 +87,10 @@ Package manager is **npm** (`package-lock.json`). TS `target` is `es2017`.
 | `npm run dev` | `node server.js` (Next in dev mode behind the custom server) |
 | `npm run build` | `next build` — type-checks and lints |
 | `npm start` | production custom server (needs a prior build) |
-| `npm test` | `node --test "server/__tests__/**/*.test.js"` |
+| `npm test` | both suites: `test:api` then `test:web` |
+| `npm run test:api` | `node --test "server/__tests__/**/*.test.js"` |
+| `npm run test:web` | `node --test "src/__tests__/**/*.test.ts"` |
+| `npm run icons` | regenerate the PWA icons |
 | `npm run lint` | `next lint` |
 
 ---
@@ -86,7 +102,8 @@ Package manager is **npm** (`package-lock.json`). TS `target` is `es2017`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api` | health check |
+| GET | `/api` | hello, for a quick "is it up" |
+| GET | `/api/health` | version, uptime and the database state; 503 when disconnected |
 | POST | `/api/user/register` | rate-limited, zod-validated |
 | POST | `/api/user/login` | rate-limited; sets the `token` cookie; stamps `lastLoginAt` |
 | POST | `/api/user/logout` | clears the cookie |
@@ -105,6 +122,14 @@ Package manager is **npm** (`package-lock.json`). TS `target` is `es2017`.
 | DELETE | `/api/trash` | empty trash |
 | GET | `/api/stats` | aggregation for the analytics page (`?days=7..90`) |
 | GET | `/api/tags` | distinct tags with counts |
+| GET | `/api/account/export/todos` | `?format=json\|csv`, sent as a file download |
+| GET | `/api/account/export` | the whole account as one JSON file |
+| POST | `/api/account/import` | `{format, data, dryRun, skipDuplicates}`; a dry run writes nothing |
+| POST | `/api/account/sample-data` | seeds an **empty** account (409 otherwise) |
+| GET/DELETE | `/api/account/sessions` | list; `DELETE /sessions/all` and `/sessions/:id` revoke |
+| POST | `/api/account/2fa/setup\|enable\|disable` | TOTP setup, first-code enable, password-confirmed off |
+| GET | `/api/account/audit` | the account's security log, paginated |
+| DELETE | `/api/account` | erases everything; needs the password and `confirm: "DELETE"` |
 
 **List query params** (`GET /api/todo`, validated by `listQuerySchema`):
 `page`, `limit`, `q`, `status[]`, `priority[]`, `tags[]`,
@@ -118,16 +143,47 @@ Two behaviours worth knowing before changing the controller:
   sorting uses a computed numeric rank in an aggregation (`$switch`), because the
   enum would otherwise sort alphabetically.
 
+### Sessions, tokens and 2FA
+
+The JWT carries `{ _id, sid, tv }`: the session id and the account's token
+version. `middleware/auth.js` rejects a token whose `tv` no longer matches the
+user (a "sign out everywhere" bumps it) or whose `sid` is no longer in
+`user.sessions` (a single device was revoked). **Mint tokens only through
+`Tools.User.generateToken(user, sessionId)`** — a token without those claims does
+not authenticate. Changing the password revokes every other session.
+
+Two-factor is TOTP, implemented in `server/utils/totp.js` on node's `crypto`
+(HMAC-SHA1, 30-second step, ±1 step of drift) — there is no dependency, and no QR
+image: the setup screen shows the secret and the `otpauth://` URI. Recovery codes
+are SHA-256 hashes and are returned in clear exactly once, when 2FA is enabled.
+Login therefore has three outcomes: bad credentials (400), `200 { twoFactorRequired: true }`
+with no cookie, and success.
+
 ### Models
 
 - **User**: name, email (unique, lowercased), password (bcrypt via `pre("save")`),
   role, status, `avatar`, `preferences{theme,defaultView,pageSize,density}`,
-  `lastLoginAt`. Methods: `comparePassword`, `toSafeJSON`.
+  `lastLoginAt`, `tokenVersion`, `sessions[]`, `twoFactor{}`. Methods:
+  `comparePassword`, `toSafeJSON` (which reduces `twoFactor` to a flag).
+  `SAFE_SELECT` in `User.controller.js` is the only projection a route may see:
+  it drops the hash *and* every 2FA field.
+- **AuditLog**: account-level security events (`login`, `password.changed`,
+  `2fa.enabled`, `export.todos`, …). Written best-effort by
+  `SecurityController.record` — a failed log never fails the action.
 - **Todo**: the `todoFields` object is exported and **reused by Trash**, so a
   delete/recover round trip preserves everything. `pre("save")` keeps
   `completedAt` in step with `status`. Indexed on `{ownerId,archived,status}`,
   `{ownerId,dueDate}`, `{ownerId,pinned,order,createdAt}`, plus a text index.
 - **Trash**: `todoFields` + `todoId` (the original id) + `deletedAt`.
+
+### Requests, ids and logging
+
+`middleware/checkin-logger.js` gives every request an id (`req.id`, echoed as
+`X-Request-Id`, and reused if the caller sent one) and writes one line when the
+response finishes: **JSON in production, a short human line in development,
+nothing under test**. Error responses, the 404 and the 401 all carry
+`requestId`, so a user's report can be matched to a log line. Passwords, codes
+and import payloads are never logged.
 
 ### Errors and validation
 
@@ -157,6 +213,13 @@ middleware; for `source: "query"` the parsed result lands on **`req.validatedQue
 | `/dashboard/trash` | trash, restore, empty |
 | `/dashboard/analytics` | stat tiles + charts |
 | `/dashboard/settings` | profile, avatar, preferences, password |
+| `/dashboard/settings/data` | export, import with a dry-run preview, sample data |
+| `/dashboard/settings/security` | sessions, two-factor, audit log, account deletion |
+| `/dashboard/today` | focus view: overdue, due today, pinned, plus the pomodoro |
+| `/dashboard/upcoming` | the next weeks grouped by day |
+| `/dashboard/review` | weekly review |
+| `/dashboard/projects/[projectId]` | one project: its todos and analytics |
+| `/dashboard/templates`, `/dashboard/tags` | template library, tag manager |
 
 ### Data layer
 
@@ -167,12 +230,60 @@ and `useDeleteTodo` are **optimistic** (`onMutate` patches every cached list pag
 feel instant.
 
 **Zustand (`src/store/state.tsx`) holds UI state only**: view mode, selection,
-sidebar/mobile-nav/palette/shortcuts flags. Do not put server data back in it —
-the old store kept a second copy of the todos and it drifted.
+sidebar/mobile-nav/palette/shortcuts flags, and the **undo stack**. Do not put
+server data back in it — the old store kept a second copy of the todos and it
+drifted.
+
+**Undo** is a stack of `{label, undo}` closures, capped at 10. The dashboard
+pushes an entry after every reversible action (status, pin, archive, delete,
+bulk); `Ctrl/Cmd+Z` in `useKeyboardShortcuts` pops the top one, and the
+notification centre lists the rest with a per-entry Undo button. The closures
+are memory-only, so a reload empties the stack.
+
+**Browser-local state** lives in `src/hooks/useProductivity.ts` (localStorage,
+wrapped so it never throws): the pomodoro deadline, recently viewed todos, and
+the capped id sets that keep a reminder dismissed and stop a browser
+notification firing twice. **Reminders themselves are derived**
+(`src/hooks/useReminders.ts`), not stored: overdue or due-today todos that are
+not finished, keyed `kind:todoId:dueDay`.
 
 **Filter state lives in the URL** (`src/hooks/useFilters.ts`). `parseFilter` /
 `serializeFilter` round-trip it; only non-default values are written. Any filter
 change resets to page 1.
+
+### Keyboard
+
+Two layers, deliberately separate:
+
+- `useKeyboardShortcuts` (mounted once in the dashboard layout) — global keys:
+  `Cmd+K`, `n`, `/`, `?`, `g`+letter navigation, `Esc`, and `Ctrl/Cmd+Z` for undo.
+- `useListNavigation` (used by the dashboard list and grid) — a cursor over the
+  visible todos: `j`/`k` move, `x` selects, `Enter` opens, `Space` quick-looks.
+  The active card is found through `data-todo-id`, and `Space`/`Enter` defer to a
+  focused button or link. `SHORTCUTS` in `useKeyboard.ts` is what the help modal
+  renders — add new keys there too.
+
+### Platform
+
+- **PWA**: `src/app/manifest.ts` plus `public/sw.js`, registered in production
+  only by `ServiceWorkerRegistration`. The worker caches the shell and hashed
+  build assets and **never touches `/api`** — a stale todo list would be worse
+  than an honest failure. Icons are generated by `npm run icons`.
+- **Offline**: `useOnlineStatus` drives `OfflineBanner` under the topbar; it is a
+  live region, and says "you appear to be offline" because `navigator.onLine` is
+  only a hint.
+- **Boundaries**: `error.tsx` / `not-found.tsx` / `loading.tsx` at the app root,
+  and `error.tsx` / `loading.tsx` again under `/dashboard` so a failed page keeps
+  its navigation. Both error pages show Next's `digest` as a reference.
+- **Accessibility**: a skip link is the first tab stop on every page and targets
+  `#main` (present in the dashboard layout and `PublicShell`); toasts sit in a
+  polite live region; nav links carry `aria-current="page"`; Radix returns focus
+  when a dialog closes.
+- **UI scale**: `preferences.uiScale` sets the root font size via `UiScaleEffect`.
+  Every size in the app is rem-based, so text and spacing scale together.
+- **Rate limits**: only `/user/login` and `/user/register` are limited. A 429
+  carries `Retry-After`, `ApiError` exposes it as `retryAfter`/`isRateLimited`,
+  and `RateLimitNotice` counts it down on both auth forms.
 
 ### Theming
 
@@ -231,32 +342,46 @@ broken `utils/math.js` is gone.
 
 Remaining, deliberate limitations:
 
-1. **Auth is single-token** — 1 day, no refresh, no server-side invalidation on
-   logout (the cookie is cleared client-side). `Secure` is set in production.
-2. **No email flows** — no verification, no password reset. The footer no longer
-   links to a `/forgot-password` page that does not exist.
+1. **Auth is still a single 1-day token, with no refresh** — but it is now
+   revocable: sessions are tracked per device and `tokenVersion` invalidates
+   every token at once. `Secure` is set in production.
+2. **No email flows** — no verification, no password reset. Losing both the
+   authenticator and the recovery codes means losing the account. The footer no
+   longer links to a `/forgot-password` page that does not exist.
 3. **Route protection is client-side** (`src/app/dashboard/layout.tsx` renders a
    spinner until `/me` resolves, then redirects). There is no Next middleware, so
    the dashboard HTML shell is served to anonymous users — it contains no data.
-4. **Reorder is API-only.** `PUT /api/todo/reorder` and the `order` field work and
-   are tested, but no view drags to reorder yet; the board drags between
-   *columns* (status), not within one.
+4. **Reorder is drag-and-drop in the list view** (`SortableTodoList`); the board
+   still drags between *columns* (status), not within one.
 5. **Recurrence spawns on completion**, not on a schedule — there is no cron. A
    daily todo completed once a week produces one occurrence, not seven.
 6. **`role: admin` is unused.** `getAllUsers` exists on the controller but no
    route exposes it, and nothing checks the role.
+8. **2FA setup shows the secret, not a QR code** — there is no QR library, so the
+   authenticator is fed the `otpauth://` URI or the base32 secret by hand.
+9. **The service worker caches the shell only.** The app is installable and a
+   reload works offline, but nothing queues writes for later — an edit made
+   offline fails, and says so.
 7. **Subtasks have no drag handle behaviour** — the `GripVertical` icon in
    `TodoForm` is decorative.
 
 ### Testing
 
-`npm test` runs 39 tests on Node's built-in runner against
+`npm run test:api` runs 97 tests on Node's built-in runner against
 `mongodb-memory-server` (it downloads a `mongod` binary on first run; set
 `MONGO_TEST_URL` to use a real database instead). Coverage: auth, ownership
 isolation between two users, search/filter/sort, pagination totals, bulk ops,
-trash round-trip, recurrence, stats, preferences, password change, rate limiting.
-There is still **no frontend test suite** — `next build` (types + lint) is the
-only automated check on `src/`.
+trash round-trip, recurrence, stats, preferences, password change, rate limiting,
+projects, dependencies, comments, the library (views/templates/tags), and — in
+`account.test.js` — export in both formats, import (dry run and real), sessions and
+revocation, TOTP login including a recovery code, the audit log and account deletion.
+`npm run test:web` runs 23 tests over `src/`, also on node's runner: node 24
+strips the types, so there is no test framework and no build step. Two things
+make it work — `allowImportingTsExtensions` in `tsconfig.json`, and imports
+written with an explicit `.ts` extension. Only **pure** modules can be tested
+this way (`next/navigation` does not resolve outside the bundler), which is why
+the filter helpers live in `src/lib/filters.ts`. Anything needing a DOM is still
+covered only by `next build`.
 
 ---
 

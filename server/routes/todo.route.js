@@ -1,8 +1,15 @@
 const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
-const { TodoController } = require("../controller");
+const { TodoController, CommentController, ActivityController } = require("../controller");
 const { validate } = require("../middleware");
-const { createTodoSchema, updateTodoSchema, listQuerySchema, bulkSchema, reorderSchema } = require("../validation/schemas");
+const {
+  createTodoSchema,
+  updateTodoSchema,
+  listQuerySchema,
+  bulkSchema,
+  reorderSchema,
+  commentSchema,
+} = require("../validation/schemas");
 
 router.get(
   "/",
@@ -29,6 +36,75 @@ router.put(
   asyncTryCatchWrapper(async (req, res) => {
     const result = await TodoController.reorder({ ids: req.body.ids, userId: req.user._id });
     res.status(200).json(result);
+  })
+);
+
+router.get(
+  "/:id/comments",
+  asyncTryCatchWrapper(async (req, res) => {
+    const comments = await CommentController.list({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(comments);
+  })
+);
+
+router.post(
+  "/:id/comments",
+  validate(commentSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const comment = await CommentController.create({
+      todoId: req.params.id,
+      userId: req.user._id,
+      body: req.body,
+    });
+    res.status(201).json(comment);
+  })
+);
+
+router.put(
+  "/comments/:commentId",
+  validate(commentSchema),
+  asyncTryCatchWrapper(async (req, res) => {
+    const comment = await CommentController.update({
+      commentId: req.params.commentId,
+      userId: req.user._id,
+      body: req.body,
+    });
+    res.status(200).json(comment);
+  })
+);
+
+router.delete(
+  "/comments/:commentId",
+  asyncTryCatchWrapper(async (req, res) => {
+    const comment = await CommentController.destroy({
+      commentId: req.params.commentId,
+      userId: req.user._id,
+    });
+    res.status(200).json(comment);
+  })
+);
+
+router.get(
+  "/:id/activity",
+  asyncTryCatchWrapper(async (req, res) => {
+    const activity = await ActivityController.forTodo({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(activity);
+  })
+);
+
+router.post(
+  "/:id/timer/start",
+  asyncTryCatchWrapper(async (req, res) => {
+    const todo = await TodoController.startTimer({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(todo);
+  })
+);
+
+router.post(
+  "/:id/timer/stop",
+  asyncTryCatchWrapper(async (req, res) => {
+    const todo = await TodoController.stopTimer({ todoId: req.params.id, userId: req.user._id });
+    res.status(200).json(todo);
   })
 );
 

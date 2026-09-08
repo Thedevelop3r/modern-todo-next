@@ -1,5 +1,19 @@
-const { Todo, Trash } = require("../models");
+const { Todo, Trash, Comment, Activity } = require("../models");
 const { ApiError } = require("../utils/api-error");
+const { ActivityController } = require("./Activity.controller");
+const { Mongoose } = require("../db.config");
+
+/**
+ * getTodos runs through an aggregation pipeline, and $match does NOT cast
+ * strings to ObjectId the way find() does - ids must be cast by hand.
+ */
+const toObjectId = (value) => {
+  try {
+    return new Mongoose.Types.ObjectId(String(value));
+  } catch {
+    return null;
+  }
+};
 
 /** Priority sorting needs a numeric rank; Mongo cannot order an enum string. */
 const PRIORITY_RANK = { none: 0, low: 1, medium: 2, high: 3, urgent: 4 };
@@ -28,6 +42,14 @@ class TodoController {
     if (query.status?.length) filter.status = { $in: query.status };
     if (query.priority?.length) filter.priority = { $in: query.priority };
     if (query.tags?.length) filter.tags = { $all: query.tags };
+
+    if (query.projectId) {
+      // "none" is how the UI asks for todos with no project at all.
+      filter.projectId = query.projectId === "none" ? null : toObjectId(query.projectId);
+    }
+    if (query.blocked !== undefined) {
+      filter.blockedBy = query.blocked ? { $exists: true, $ne: [] } : { $size: 0 };
+    }
 
     if (query.q) {
       // Regex rather than $text so partial words match while the user types.
@@ -117,18 +139,47 @@ class TodoController {
     // New todos lead the manual order.
     const first = await Todo.findOne({ ownerId: userId }).sort({ order: 1 }).select("order").lean();
     payload.order = (first?.order ?? 0) - 1;
-    return Todo.create(payload);
+
+    const todo = await Todo.create(payload);
+    await ActivityController.record({ todoId: todo._id, ownerId: userId, action: "created" });
+    return todo;
   }
 
   async update({ todoId, body, userId }) {
     const todo = await Todo.findOne({ _id: todoId, ownerId: userId });
     if (!todo) throw ApiError.notFound("Todo not found");
 
+    if (body.blockedBy !== undefined) {
+      await this.assertDependenciesValid({ todoId, blockedBy: body.blockedBy, userId });
+    }
+    if (body.projectId) {
+      await this.assertProjectOwned({ projectId: body.projectId, userId });
+    }
+
+    const before = todo.toObject();
     const wasCompleted = todo.status === "completed";
+
+    // Refuse to complete a todo whose blockers are still open.
+    if (!wasCompleted && body.status === "completed") {
+      const openBlockers = await this.openBlockers(todo);
+      if (openBlockers.length) {
+        throw ApiError.badRequest(
+          `Blocked by ${openBlockers.length} unfinished todo${openBlockers.length === 1 ? "" : "s"}`
+        );
+      }
+    }
+
     Object.entries(body).forEach(([key, value]) => {
       if (value !== undefined) todo[key] = value;
     });
     await todo.save();
+
+    await ActivityController.recordTodoChanges({
+      todoId: todo._id,
+      ownerId: userId,
+      before,
+      after: todo.toObject(),
+    });
 
     // Completing a recurring todo spawns the next occurrence.
     if (!wasCompleted && todo.status === "completed" && todo.recurrence !== "none") {
@@ -136,6 +187,97 @@ class TodoController {
     }
 
     return todo;
+  }
+
+  async openBlockers(todo) {
+    if (!todo.blockedBy?.length) return [];
+    return Todo.find({ _id: { $in: todo.blockedBy }, status: { $ne: "completed" } })
+      .select("_id title")
+      .lean();
+  }
+
+  async assertProjectOwned({ projectId, userId }) {
+    const { Project } = require("../models");
+    const project = await Project.findOne({ _id: projectId, ownerId: userId }).select("_id").lean();
+    if (!project) throw ApiError.badRequest("Project not found");
+  }
+
+  /**
+   * Dependencies must point at the user's own todos, must not include the todo
+   * itself, and must not close a cycle (A blocked by B blocked by A).
+   */
+  async assertDependenciesValid({ todoId, blockedBy, userId }) {
+    if (!blockedBy?.length) return;
+
+    if (blockedBy.some((id) => String(id) === String(todoId))) {
+      throw ApiError.badRequest("A todo cannot block itself");
+    }
+
+    const owned = await Todo.find({ _id: { $in: blockedBy }, ownerId: userId }).select("_id").lean();
+    if (owned.length !== blockedBy.length) throw ApiError.badRequest("Unknown todo in dependencies");
+
+    // Walk the graph upward from each blocker; reaching todoId means a cycle.
+    const seen = new Set();
+    let frontier = blockedBy.map(String);
+
+    while (frontier.length) {
+      if (frontier.includes(String(todoId))) {
+        throw ApiError.badRequest("That dependency would create a cycle");
+      }
+      frontier.forEach((id) => seen.add(id));
+
+      const next = await Todo.find({ _id: { $in: frontier }, ownerId: userId })
+        .select("blockedBy")
+        .lean();
+
+      frontier = next
+        .flatMap((row) => (row.blockedBy || []).map(String))
+        .filter((id) => !seen.has(id));
+    }
+  }
+
+  /** Starts the timer, stopping any other running timer for this user first. */
+  async startTimer({ todoId, userId }) {
+    const todo = await Todo.findOne({ _id: todoId, ownerId: userId });
+    if (!todo) throw ApiError.notFound("Todo not found");
+
+    await this.stopAllTimers(userId, todoId);
+
+    if (!todo.timerStartedAt) {
+      todo.timerStartedAt = new Date();
+      await todo.save();
+      await ActivityController.record({ todoId: todo._id, ownerId: userId, action: "timer_started" });
+    }
+    return todo;
+  }
+
+  async stopTimer({ todoId, userId }) {
+    const todo = await Todo.findOne({ _id: todoId, ownerId: userId });
+    if (!todo) throw ApiError.notFound("Todo not found");
+    if (!todo.timerStartedAt) return todo;
+
+    const minutes = Math.max(0, Math.round((Date.now() - todo.timerStartedAt.getTime()) / 60000));
+    todo.timeSpent = (todo.timeSpent || 0) + minutes;
+    todo.timerStartedAt = null;
+    await todo.save();
+
+    await ActivityController.record({
+      todoId: todo._id,
+      ownerId: userId,
+      action: "timer_stopped",
+      meta: { minutes },
+    });
+    return todo;
+  }
+
+  /** Only one timer runs at a time; any other is banked before the new start. */
+  async stopAllTimers(userId, exceptId = null) {
+    const filter = { ownerId: userId, timerStartedAt: { $ne: null } };
+    if (exceptId) filter._id = { $ne: exceptId };
+
+    const running = await Todo.find(filter);
+    await Promise.all(running.map((todo) => this.stopTimer({ todoId: todo._id, userId })));
+    return running.length;
   }
 
   /** Creates the next occurrence of a recurring todo, shifting its due date. */
@@ -184,6 +326,14 @@ class TodoController {
 
     const { _id, ...rest } = deletedTodo.toObject();
     await Trash.create({ ...rest, todoId: _id, deletedAt: new Date() });
+
+    // Nothing should keep pointing at a todo that is gone.
+    await Promise.all([
+      Comment.deleteMany({ todoId: _id }),
+      Activity.deleteMany({ todoId: _id }),
+      Todo.updateMany({ ownerId: userId, blockedBy: _id }, { $pull: { blockedBy: _id } }),
+    ]);
+
     return deletedTodo;
   }
 
@@ -212,6 +362,7 @@ class TodoController {
       unpin: () => ({ pinned: false }),
       archive: () => ({ archived: true }),
       unarchive: () => ({ archived: false }),
+      project: () => ({ projectId: value || null }),
     };
 
     if (action === "tag") {

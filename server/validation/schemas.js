@@ -5,7 +5,7 @@ const { z } = require("zod");
 const STATUS = ["pending", "progress", "completed"];
 const PRIORITY = ["none", "low", "medium", "high", "urgent"];
 const RECURRENCE = ["none", "daily", "weekly", "monthly"];
-const VIEWS = ["list", "grid", "board", "calendar"];
+const VIEWS = ["list", "grid", "board", "calendar", "table"];
 
 const email = z.string().trim().toLowerCase().email("Enter a valid email address");
 const password = z.string().min(8, "Password must be at least 8 characters").max(128);
@@ -19,6 +19,8 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email,
   password: z.string().min(1, "Password is required"),
+  // Present only once the account asks for a second factor.
+  code: z.string().trim().max(20).optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -40,6 +42,7 @@ const preferencesSchema = z
     defaultView: z.enum(VIEWS).optional(),
     pageSize: z.coerce.number().int().min(5).max(100).optional(),
     density: z.enum(["comfortable", "compact"]).optional(),
+    uiScale: z.enum(["small", "normal", "large"]).optional(),
   })
   .strip();
 
@@ -59,6 +62,8 @@ const nullableDate = z
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   });
 
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
+
 const createTodoSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100),
   description: z.string().trim().max(1500).optional().default(""),
@@ -70,6 +75,10 @@ const createTodoSchema = z.object({
   recurrence: z.enum(RECURRENCE).default("none"),
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
+  projectId: z.union([objectId, z.null()]).optional(),
+  startDate: nullableDate,
+  estimate: z.union([z.coerce.number().min(0).max(1000), z.null()]).optional(),
+  blockedBy: z.array(objectId).max(20).default([]),
 });
 
 // Every field optional on update; only what is sent gets written.
@@ -86,12 +95,27 @@ const updateTodoSchema = z
     pinned: z.boolean().optional(),
     archived: z.boolean().optional(),
     order: z.number().optional(),
+    projectId: z.union([objectId, z.null()]).optional(),
+    startDate: nullableDate,
+    estimate: z.union([z.coerce.number().min(0).max(1000), z.null()]).optional(),
+    blockedBy: z.array(objectId).max(20).optional(),
   })
   .strip();
 
 const bulkSchema = z.object({
   ids: z.array(z.string().min(1)).min(1, "Select at least one todo").max(200),
-  action: z.enum(["status", "priority", "tag", "untag", "pin", "unpin", "archive", "unarchive", "delete"]),
+  action: z.enum([
+    "status",
+    "priority",
+    "tag",
+    "untag",
+    "pin",
+    "unpin",
+    "archive",
+    "unarchive",
+    "delete",
+    "project",
+  ]),
   value: z.any().optional(),
 });
 
@@ -134,8 +158,98 @@ const listQuerySchema = z.object({
   due: z.enum(["any", "overdue", "today", "week", "none"]).optional(),
   archived: boolParam,
   pinned: boolParam,
-  sort: z.enum(["createdAt", "updatedAt", "dueDate", "priority", "title", "order"]).default("createdAt"),
+  projectId: z.string().optional(),
+  blocked: boolParam,
+  sort: z
+    .enum(["createdAt", "updatedAt", "dueDate", "startDate", "priority", "title", "order", "estimate"])
+    .default("createdAt"),
   order: z.enum(["asc", "desc"]).default("desc"),
+});
+
+const projectSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(60),
+  description: z.string().trim().max(500).optional().default(""),
+  color: z
+    .enum(["slate", "red", "orange", "amber", "green", "teal", "sky", "indigo", "violet", "pink"])
+    .default("indigo"),
+  archived: z.boolean().default(false),
+});
+
+const projectUpdateSchema = projectSchema.partial().strip();
+
+const savedViewSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(60),
+  // Free-form so the dashboard's filter shape can grow without a migration.
+  query: z.record(z.string(), z.any()).default({}),
+  icon: z.string().max(32).default("bookmark"),
+  pinned: z.boolean().default(false),
+});
+
+const savedViewUpdateSchema = savedViewSchema.partial().strip();
+
+const templateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(60),
+  title: z.string().trim().min(1, "Title is required").max(100),
+  description: z.string().trim().max(1500).optional().default(""),
+  priority: z.enum(PRIORITY).default("none"),
+  tags: z.array(z.string().trim().min(1).max(24)).max(10).default([]),
+  subtasks: z.array(subtask).max(50).default([]),
+  estimate: z.union([z.coerce.number().min(0).max(1000), z.null()]).optional(),
+  projectId: z.union([objectId, z.null()]).optional(),
+  recurrence: z.enum(RECURRENCE).default("none"),
+  dueInDays: z.union([z.coerce.number().int().min(0).max(3650), z.null()]).optional(),
+});
+
+const templateUpdateSchema = templateSchema.partial().strip();
+
+const templateFromTodoSchema = z.object({
+  todoId: objectId,
+  name: z.string().trim().max(60).optional(),
+});
+
+const tagRenameSchema = z.object({
+  from: z.string().trim().min(1).max(24),
+  to: z.string().trim().min(1).max(24),
+});
+
+const tagMergeSchema = z.object({
+  sources: z.array(z.string().trim().min(1).max(24)).min(1).max(20),
+  target: z.string().trim().min(1).max(24),
+});
+
+const commentSchema = z.object({
+  body: z.string().trim().min(1, "Comment cannot be empty").max(2000),
+});
+
+const importSchema = z.object({
+  format: z.enum(["json", "csv"]).default("json"),
+  data: z.string().min(1, "There is nothing to import").max(2_000_000),
+  /** Defaults to a preview: importing for real is an explicit second call. */
+  dryRun: z.coerce.boolean().default(true),
+  skipDuplicates: z.coerce.boolean().default(true),
+});
+
+const exportQuerySchema = z.object({
+  format: z.enum(["json", "csv"]).default("json"),
+});
+
+const auditQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+});
+
+const twoFactorCodeSchema = z.object({
+  code: z.string().trim().min(6, "Enter the 6-digit code").max(20),
+});
+
+const passwordConfirmSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+});
+
+/** Deleting an account asks for the password *and* the word, on purpose. */
+const deleteAccountSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+  confirm: z.literal("DELETE", { message: 'Type DELETE to confirm' }),
 });
 
 module.exports = {
@@ -152,4 +266,21 @@ module.exports = {
   bulkSchema,
   reorderSchema,
   listQuerySchema,
+  projectSchema,
+  projectUpdateSchema,
+  commentSchema,
+  savedViewSchema,
+  savedViewUpdateSchema,
+  templateSchema,
+  templateUpdateSchema,
+  templateFromTodoSchema,
+  tagRenameSchema,
+  tagMergeSchema,
+  importSchema,
+  exportQuerySchema,
+  auditQuerySchema,
+  twoFactorCodeSchema,
+  passwordConfirmSchema,
+  deleteAccountSchema,
+  objectId,
 };

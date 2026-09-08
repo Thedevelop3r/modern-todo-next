@@ -20,7 +20,9 @@ import { AlertTriangle, CalendarCheck, CheckCircle2, Flame, ListTodo, TrendingUp
 import { format, parseISO } from "date-fns";
 import { Card, CardContent, EmptyState, Skeleton, StaggerItem, StaggerList } from "@/components/ui";
 import { ChartLegend, ChartTooltip, useChartColors } from "@/components/todo/charts";
+import { CompletionHeatmap } from "@/components/todo/Heatmap";
 import { useStats } from "@/hooks/useTodos";
+import { useTheme } from "next-themes";
 import { PRIORITY_LABEL, STATUS_LABEL } from "@/lib/utils";
 
 /** Counts up to the final value - a small bit of life on an otherwise static tile. */
@@ -126,7 +128,9 @@ function ChartCard({
 
 export default function AnalyticsPage() {
   const colors = useChartColors();
-  const { data: stats, isLoading } = useStats();
+  const { resolvedTheme } = useTheme();
+  // A year of history so the heatmap has something to show.
+  const { data: stats, isLoading } = useStats({ days: 365 });
 
   if (isLoading || !stats) {
     return (
@@ -158,7 +162,8 @@ export default function AnalyticsPage() {
     );
   }
 
-  const trend = completionTrend.map((point) => ({
+  // The line chart reads the last 30 days; the heatmap uses the full year.
+  const trend = completionTrend.slice(-30).map((point) => ({
     ...point,
     label: format(parseISO(point.date), "d MMM"),
   }));
@@ -305,6 +310,12 @@ export default function AnalyticsPage() {
           </ChartCard>
         </StaggerItem>
       </div>
+
+      <StaggerItem>
+        <ChartCard title="Completion heatmap" description="Every day of the last year.">
+          <CompletionHeatmap trend={completionTrend} isDark={resolvedTheme === "dark"} />
+        </ChartCard>
+      </StaggerItem>
 
       {topTags.length > 0 && (
         <StaggerItem>

@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarDays, Circle, Minus, Zap } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, Ban, CalendarDays, Circle, Clock, Gauge, Minus, Zap } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { cn, PRIORITY_LABEL, STATUS_DOT, STATUS_LABEL, splitHighlight } from "@/lib/utils";
+import { cn, formatDuration, liveMinutes, PRIORITY_LABEL, STATUS_DOT, STATUS_LABEL, splitHighlight } from "@/lib/utils";
 import { dueLabel, dueState } from "@/lib/date";
 
 /** Status pill. Colour comes from the status tokens so both themes stay legible. */
@@ -69,5 +69,56 @@ export function Highlight({ text, query }: { text: string; query?: string }) {
         )
       )}
     </>
+  );
+}
+
+/** Effort estimate. Zero is a real estimate and is shown; null is not. */
+export function EstimateBadge({ estimate, className }: { estimate?: number | null; className?: string }) {
+  if (estimate === null || estimate === undefined) return null;
+  return (
+    <Badge tone="neutral" className={className}>
+      <Gauge className="h-3 w-3" />
+      {estimate} pt{estimate === 1 ? "" : "s"}
+    </Badge>
+  );
+}
+
+/** Tracked time; turns danger-toned while a timer is running. */
+export function TimeBadge({ todo, className }: { todo: Todo; className?: string }) {
+  const running = Boolean(todo.timerStartedAt);
+  const minutes = liveMinutes(todo);
+  if (!minutes && !running) return null;
+
+  return (
+    <Badge tone={running ? "danger" : "neutral"} className={className}>
+      <Clock className="h-3 w-3" />
+      {formatDuration(minutes)}
+      {running && <span className="h-1 w-1 animate-pulse rounded-full bg-danger" />}
+    </Badge>
+  );
+}
+
+export function BlockedBadge({ count, className }: { count: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <Badge tone="danger" className={className}>
+      <Ban className="h-3 w-3" />
+      Blocked
+    </Badge>
+  );
+}
+
+/** "Starts in 3 days" for work that has not begun. */
+export function StartBadge({ todo, className }: { todo: Todo; className?: string }) {
+  if (!todo.startDate || todo.status !== "pending") return null;
+  const start = new Date(todo.startDate);
+  if (Number.isNaN(start.getTime()) || start <= new Date()) return null;
+
+  const days = Math.ceil((start.getTime() - Date.now()) / 86400000);
+  return (
+    <Badge tone="info" className={className}>
+      <CalendarDays className="h-3 w-3" />
+      Starts in {days}d
+    </Badge>
   );
 }

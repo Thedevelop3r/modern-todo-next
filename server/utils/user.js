@@ -27,8 +27,17 @@ User.RemoveCookie = (res) => {
   });
 };
 
-User.generateToken = (user) => {
-  return jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
+/**
+ * The token carries the session id and the account's token version, so a
+ * single device can be revoked (`sid` gone from the user) or every device at
+ * once (`tv` no longer matching).
+ */
+User.generateToken = (user, sessionId) => {
+  return jwt.sign(
+    { _id: user._id, sid: sessionId, tv: user.tokenVersion || 0 },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
 };
 
 module.exports = { User };

@@ -1,4 +1,14 @@
 const { Todo, Trash } = require("../models");
+const { Mongoose } = require("../db.config");
+
+// $match does not cast strings to ObjectId; see PROGRESS.md decisions (B1).
+const toObjectId = (value) => {
+  try {
+    return new Mongoose.Types.ObjectId(String(value));
+  } catch {
+    return null;
+  }
+};
 
 const STATUSES = ["pending", "progress", "completed"];
 const PRIORITIES = ["none", "low", "medium", "high", "urgent"];
@@ -49,11 +59,17 @@ function currentStreak(trend) {
 
 class StatsController {
   /** Everything the analytics page needs, in one round trip. */
-  async summary(userId, { days = 30 } = {}) {
+  async summary(userId, { days = 30, projectId = null } = {}) {
     const since = startOfDay();
     since.setDate(since.getDate() - (days - 1));
 
     const activeScope = { ownerId: userId, archived: false };
+    const allScope = { ownerId: userId };
+    const scopedProject = projectId ? toObjectId(projectId) : null;
+    if (scopedProject) {
+      activeScope.projectId = scopedProject;
+      allScope.projectId = scopedProject;
+    }
 
     const [totals, statusRows, priorityRows, createdRows, completedRows, tagRows, archived, trashCount] =
       await Promise.all([
@@ -107,22 +123,22 @@ class StatsController {
           { $group: { _id: "$priority", value: { $sum: 1 } } },
         ]),
         Todo.aggregate([
-          { $match: { ownerId: userId, createdAt: { $gte: since } } },
+          { $match: { ...allScope, createdAt: { $gte: since } } },
           { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, value: { $sum: 1 } } },
         ]),
         Todo.aggregate([
-          { $match: { ownerId: userId, completedAt: { $ne: null, $gte: since } } },
+          { $match: { ...allScope, completedAt: { $ne: null, $gte: since } } },
           { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt" } }, value: { $sum: 1 } } },
         ]),
         Todo.aggregate([
-          { $match: { ownerId: userId } },
+          { $match: allScope },
           { $unwind: "$tags" },
           { $group: { _id: "$tags", value: { $sum: 1 } } },
           { $project: { _id: 0, name: "$_id", value: 1 } },
           { $sort: { value: -1, name: 1 } },
           { $limit: 6 },
         ]),
-        Todo.countDocuments({ ownerId: userId, archived: true }),
+        Todo.countDocuments({ ...allScope, archived: true }),
         Trash.countDocuments({ ownerId: userId }),
       ]);
 
@@ -130,6 +146,21 @@ class StatsController {
     const statusMap = new Map(statusRows.map((row) => [row._id, row.value]));
     const priorityMap = new Map(priorityRows.map((row) => [row._id, row.value]));
     const completionTrend = buildTrend(days, createdRows, completedRows);
+
+    const effort = await Todo.aggregate([
+      { $match: activeScope },
+      {
+        $group: {
+          _id: null,
+          estimated: { $sum: { $ifNull: ["$estimate", 0] } },
+          timeSpent: { $sum: { $ifNull: ["$timeSpent", 0] } },
+          estimatedDone: {
+            $sum: { $cond: [{ $eq: ["$status", "completed"] }, { $ifNull: ["$estimate", 0] }, 0] },
+          },
+        },
+      },
+    ]);
+    const effortRow = effort[0] || { estimated: 0, timeSpent: 0, estimatedDone: 0 };
 
     return {
       summary: {
@@ -144,6 +175,9 @@ class StatsController {
         trashed: trashCount,
         completionRate: agg.total ? Math.round((agg.completed / agg.total) * 100) : 0,
         currentStreak: currentStreak(completionTrend),
+        estimatedPoints: effortRow.estimated,
+        completedPoints: effortRow.estimatedDone,
+        timeSpent: effortRow.timeSpent,
       },
       // Zero-filled so the charts keep a stable set of series and colours.
       byStatus: STATUSES.map((name) => ({ name, value: statusMap.get(name) || 0 })),

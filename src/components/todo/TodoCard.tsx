@@ -28,7 +28,9 @@ import {
   Tooltip,
 } from "@/components/ui";
 import { cn, subtaskProgress } from "@/lib/utils";
-import { DueBadge, Highlight, PriorityBadge, StatusBadge } from "./TodoBits";
+import { BlockedBadge, DueBadge, EstimateBadge, Highlight, PriorityBadge, StartBadge, StatusBadge, TimeBadge } from "./TodoBits";
+import { ProjectBadge } from "./ProjectPicker";
+import { useProjects } from "@/hooks/useProjects";
 
 export type TodoCardActions = {
   onToggleStatus: (todo: Todo) => void;
@@ -54,6 +56,7 @@ export function TodoCard({
   selected,
   onSelectedChange,
   compact,
+  active,
   className,
 }: {
   todo: Todo;
@@ -63,16 +66,21 @@ export function TodoCard({
   selected?: boolean;
   onSelectedChange?: (checked: boolean) => void;
   compact?: boolean;
+  /** Keyboard cursor (j/k navigation) is on this card. */
+  active?: boolean;
   className?: string;
 }) {
   const progress = subtaskProgress(todo.subtasks);
   const completed = todo.status === "completed";
+  const { data: projects } = useProjects();
+  const project = projects?.find((p) => p._id === todo.projectId);
 
   const StatusIcon = completed ? CheckCircle2 : todo.status === "progress" ? Timer : Circle;
 
   return (
     <motion.article
       layout
+      data-todo-id={todo._id}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.15 } }}
@@ -80,6 +88,7 @@ export function TodoCard({
       className={cn(
         "group relative rounded-xl border bg-surface transition-shadow hover:shadow-md",
         selected ? "border-primary ring-1 ring-primary" : "border-border",
+        active && !selected && "border-primary/60 ring-1 ring-primary/40",
         todo.pinned && !selected && "border-l-2 border-l-primary",
         compact ? "p-3.5" : "p-4 sm:p-5",
         className
@@ -188,6 +197,11 @@ export function TodoCard({
             <StatusBadge status={todo.status} />
             <PriorityBadge priority={todo.priority} />
             <DueBadge todo={todo} />
+            <StartBadge todo={todo} />
+            <BlockedBadge count={todo.blockedBy?.length || 0} />
+            <EstimateBadge estimate={todo.estimate} />
+            <TimeBadge todo={todo} />
+            <ProjectBadge project={project} />
             {todo.tags?.map((tag) => (
               <Tag key={tag} label={tag} onClick={actions.onTagClick ? () => actions.onTagClick?.(tag) : undefined} />
             ))}

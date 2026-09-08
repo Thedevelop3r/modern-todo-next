@@ -3,9 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useUiStore } from "@/store/state";
+import { useToast } from "@/components/ui";
 
 /** True when focus is in a field, where single-key shortcuts must not fire. */
-function isTyping(target: EventTarget | null) {
+export function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
   if (!el) return false;
   const tag = el.tagName;
@@ -20,6 +21,12 @@ export const SHORTCUTS = [
   { keys: ["g", "a"], description: "Go to analytics" },
   { keys: ["g", "t"], description: "Go to trash" },
   { keys: ["g", "s"], description: "Go to settings" },
+  { keys: ["j"], description: "Next todo in the list" },
+  { keys: ["k"], description: "Previous todo in the list" },
+  { keys: ["x"], description: "Select the todo under the cursor" },
+  { keys: ["Space"], description: "Quick look at the todo" },
+  { keys: ["Enter"], description: "Open the todo" },
+  { keys: ["Ctrl", "Z"], description: "Undo the last action" },
   { keys: ["?"], description: "Show this help" },
   { keys: ["Esc"], description: "Close dialogs / clear selection" },
 ];
@@ -30,7 +37,8 @@ export const SHORTCUTS = [
  */
 export function useKeyboardShortcuts() {
   const router = useRouter();
-  const { setCommandOpen, setShortcutsOpen, clearSelection } = useUiStore();
+  const toast = useToast();
+  const { setCommandOpen, setShortcutsOpen, clearSelection, popUndo } = useUiStore();
   const pendingG = React.useRef(false);
   const gTimer = React.useRef<ReturnType<typeof setTimeout>>();
 
@@ -40,6 +48,24 @@ export function useKeyboardShortcuts() {
       if (cmdK) {
         event.preventDefault();
         setCommandOpen(true);
+        return;
+      }
+
+      // Ctrl/Cmd+Z walks back through the undo stack - but text fields keep
+      // their own native undo, so a field with focus wins.
+      const undoCombo =
+        (event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z";
+      if (undoCombo) {
+        if (isTyping(event.target)) return;
+        event.preventDefault();
+        const entry = popUndo();
+        if (!entry) {
+          toast.info("Nothing left to undo");
+          return;
+        }
+        Promise.resolve(entry.undo())
+          .then(() => toast.success("Undone", { description: entry.label }))
+          .catch((error: Error) => toast.error("Could not undo", { description: error.message }));
         return;
       }
 
@@ -95,5 +121,5 @@ export function useKeyboardShortcuts() {
       window.removeEventListener("keydown", onKeyDown);
       clearTimeout(gTimer.current);
     };
-  }, [router, setCommandOpen, setShortcutsOpen, clearSelection]);
+  }, [router, setCommandOpen, setShortcutsOpen, clearSelection, popUndo, toast]);
 }

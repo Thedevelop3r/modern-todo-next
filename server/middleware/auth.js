@@ -20,12 +20,20 @@ const auth = async (req, res, next) => {
     const user = await UserController.verifyUser(decoded._id);
     if (!user) throw ApiError.unauthorized();
 
+    // A revoke-all bumps tokenVersion; revoking one device drops its session.
+    if ((decoded.tv ?? -1) !== (user.tokenVersion || 0)) throw ApiError.unauthorized();
+    if (!decoded.sid || !user.sessions?.some((session) => session.id === decoded.sid)) {
+      throw ApiError.unauthorized();
+    }
+
     req.user = user;
     req.token = token;
+    req.sessionId = decoded.sid;
+    UserController.touchSession(user._id, decoded.sid);
     next();
   } catch (err) {
     // Never leak why the token failed.
-    res.status(401).json({ message: "Please authenticate" });
+    res.status(401).json({ message: "Please authenticate", requestId: req.id });
   }
 };
 
