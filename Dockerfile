@@ -1,11 +1,8 @@
 # syntax=docker/dockerfile:1
 
-ARG NODE_VERSION=20.11.0
+ARG NODE_VERSION=24
 
-FROM node:${NODE_VERSION}-alpine
-
-# bcrypt builds a native addon; alpine needs a toolchain for it.
-RUN apk add --no-cache python3 make g++
+FROM node:${NODE_VERSION}-slim
 
 WORKDIR /app
 
@@ -17,4 +14,7 @@ COPY . .
 # Both the pages and the API are served from this one port.
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# build
+RUN npm run build
+
+CMD ["npm", "run", "start"]
