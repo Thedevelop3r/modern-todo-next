@@ -1,19 +1,26 @@
+/**
+ * One line per API request. Quiet in production and under test; passwords are
+ * never written out.
+ */
+const ENABLED = process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
+
 async function checkinLogger(req, res, next) {
-  const ip = req.headers["x-forwarded-for"] || req?.connection?.remoteAddress;
-  const method = req.method;
-  const path = req.path;
-  const query = { ...req?.query };
-  const body = { ...req?.body } || "forbidden";
-  if (body && body.password) delete body.password;
-  const params = { ...req?.params };
-  const timestamp = new Date().toLocaleString();
-  console.log(
-    `[${timestamp}] ${ip} ${method} ${path} ${JSON.stringify({
-      query,
-      body,
-      params,
-    })}`
-  );
+  if (!ENABLED) return next();
+
+  const ip = req.headers["x-forwarded-for"] || req?.socket?.remoteAddress;
+  const body = { ...(req.body || {}) };
+  delete body.password;
+  delete body.currentPassword;
+  delete body.newPassword;
+
+  const extras = [
+    Object.keys(req.query || {}).length ? `query=${JSON.stringify(req.query)}` : "",
+    Object.keys(body).length ? `body=${JSON.stringify(body)}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  console.log(`[${new Date().toISOString()}] ${ip} ${req.method} ${req.originalUrl} ${extras}`.trimEnd());
   next();
 }
 

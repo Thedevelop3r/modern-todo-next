@@ -2,46 +2,29 @@
 
 const jwt = require("jsonwebtoken");
 const { UserController } = require("../controller/User.controller");
+const { ApiError } = require("../utils/api-error");
 
+/**
+ * Accepts the session cookie or an `Authorization: Bearer` header and attaches
+ * the (password-free) user document as req.user.
+ */
 const auth = async (req, res, next) => {
   const authHeader = req.header("Authorization");
-  const cookieHeader = req?.cookies?.token;
-  let token = false;
-
-  if (authHeader) {
-    token = authHeader.replace("Bearer ", "");
-  } else if (cookieHeader) {
-    token = cookieHeader;
-  }
-
-  console.log("\n--------------1---------------------\n");
-  console.log("** AUTH MIDDLEWARE ** -> authHeader:", Boolean(authHeader), "cookieHeader:", Boolean(cookieHeader));
-  console.log("** AUTH MIDDLEWARE ** -> token present:", Boolean(token));
-  console.log("-----------------------------------");
+  const cookieToken = req?.cookies?.token;
+  const token = authHeader ? authHeader.replace("Bearer ", "") : cookieToken;
 
   try {
-    if (!token) {
-      console.log("token not found!");
-      throw new Error("No token provided");
-    }
-    console.log("token found! -> decoding...");
+    if (!token) throw ApiError.unauthorized();
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded._id;
-    console.log("verifying user...");
-    const user = await UserController.verifyUser(userId);
-    if (!user) {
-      console.log("user not found!");
-      throw new Error("No user found");
-    }
+    const user = await UserController.verifyUser(decoded._id);
+    if (!user) throw ApiError.unauthorized();
+
     req.user = user;
     req.token = token;
-    console.log("\n** AUTH MIDDLEWARE ** -> username:", user.name, "role:", user.role, "status:", user.status);
-    console.log("\n-----------------------------------\n");
     next();
   } catch (err) {
-    console.log("---------------EE--------------------");
-    console.log("** AUTH MIDDLEWARE ** -> ERROR:", err.message);
-    console.log("-----------------------------------\n");
+    // Never leak why the token failed.
     res.status(401).json({ message: "Please authenticate" });
   }
 };

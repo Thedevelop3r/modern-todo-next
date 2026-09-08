@@ -1,65 +1,67 @@
 const { Todo, Trash } = require("../models");
+const { ApiError } = require("../utils/api-error");
 
 class TrashController {
-  constructor() {}
+  async getTodos(query, userId) {
+    const filter = { ownerId: userId };
+    if (query.q) {
+      const escaped = query.q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rx = new RegExp(escaped, "i");
+      filter.$or = [{ title: rx }, { description: rx }];
+    }
 
-  async getTodos({ limit = 10, page = 1 }, userId) {
-    try {
-      const todos = await Trash.find({
-        ownerId: userId,
-      })
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+
+    const [data, totalRecords] = await Promise.all([
+      Trash.find(filter)
+        .sort({ deletedAt: -1, _id: -1 })
         .limit(limit)
         .skip((page - 1) * limit)
-        .sort({ created_at: -1 });
-      // TODO: 1 Apply sorting and filters
-      // provide additional information
-      const totalPages = Math.ceil((await Trash.countDocuments()) / limit);
-      const meta = {
-        totalRecords: await Trash.countDocuments(),
-        page: page,
-        limit: limit,
-        totalPages: totalPages,
-      };
-      return { data: todos, meta };
-    } catch (err) {
-      return err;
-    }
+        .lean(),
+      // Scoped to the same filter so the count matches the rows.
+      Trash.countDocuments(filter),
+    ]);
+
+    return {
+      data,
+      meta: {
+        totalRecords,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(totalRecords / limit)),
+      },
+    };
   }
 
   async getTodoById({ todoId, userId }) {
     const todo = await Trash.findOne({ _id: todoId, ownerId: userId });
+    if (!todo) throw ApiError.notFound("Item not found in trash");
     return todo;
   }
 
-  async create({ body, userId }) {
-    body.ownerId = userId;
-    const newTodo = await Trash.create(body);
-    return newTodo;
-  }
-
-  async createMany(todos) {
-    const newTodos = await Trash.insertMany(todos);
-    return newTodos;
-  }
-
-  async update({ todoId, body, userId }) {
-    const parsedBody = {};
-    if (body.title) parsedBody.title = body.title;
-    if (body.description) parsedBody.description = body.description;
-    if (body.status) parsedBody.status = body.status;
-    const updatedTodo = await Trash.findOneAndUpdate({ _id: todoId, ownerId: userId }, parsedBody, { new: true });
-   
-    return updatedTodo;
-  }
+  /**
+   * Moves an item back into Todo. The trash record's own _id and todoId are
+   * dropped so the restored todo gets a clean identity rather than inheriting
+   * the trash row's id.
+   */
   async recover({ todoId, userId }) {
-    const deletedTodo = await Trash.findOneAndDelete({ _id: todoId, ownerId: userId });
-    const recoveredTodo  = await Todo.create({ ...deletedTodo._doc, todoId: todoId });
-    return recoveredTodo;
+    const trashed = await Trash.findOneAndDelete({ _id: todoId, ownerId: userId });
+    if (!trashed) throw ApiError.notFound("Item not found in trash");
+
+    const { _id, todoId: originalId, deletedAt, createdAt, updatedAt, ...rest } = trashed.toObject();
+    return Todo.create({ ...rest, _id: originalId });
   }
 
   async destroy({ todoId, userId }) {
-    const deletedTodo = await Trash.findOneAndDelete({ _id: todoId, ownerId: userId });
-    return deletedTodo;
+    const deleted = await Trash.findOneAndDelete({ _id: todoId, ownerId: userId });
+    if (!deleted) throw ApiError.notFound("Item not found in trash");
+    return deleted;
+  }
+
+  async empty(userId) {
+    const result = await Trash.deleteMany({ ownerId: userId });
+    return { deleted: result.deletedCount || 0 };
   }
 }
 
