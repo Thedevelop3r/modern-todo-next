@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
@@ -13,12 +13,21 @@ import {
   Plus,
   Settings,
   Trash2,
+  CalendarRange,
+  ClipboardList,
+  Sun,
+  FolderOpen,
+  FileStack,
+  Tags,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/state";
 import { useLogout, useMe } from "@/hooks/useAuth";
 import { useStats } from "@/hooks/useTodos";
+import { useProjects } from "@/hooks/useProjects";
+import { NewProjectModal } from "@/components/todo/ProjectPicker";
+import { PROJECT_COLORS } from "@/lib/utils";
 import { Avatar, Button, Tooltip } from "@/components/ui";
 
 type NavItem = {
@@ -31,8 +40,13 @@ type NavItem = {
 function useNavItems(): NavItem[] {
   const { data: stats } = useStats();
   return [
+    { href: "/dashboard/today", label: "Today", icon: Sun, badge: stats?.summary.dueToday },
     { href: "/dashboard", label: "Todos", icon: CheckSquare, badge: stats?.summary.total },
+    { href: "/dashboard/upcoming", label: "Upcoming", icon: CalendarRange },
+    { href: "/dashboard/review", label: "Weekly review", icon: ClipboardList },
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/dashboard/templates", label: "Templates", icon: FileStack },
+    { href: "/dashboard/tags", label: "Tags", icon: Tags },
     { href: "/dashboard/archive", label: "Archive", icon: Archive, badge: stats?.summary.archived },
     { href: "/dashboard/trash", label: "Trash", icon: Trash2, badge: stats?.summary.trashed },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -54,6 +68,7 @@ function NavLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: 
             <Link
               href={href}
               onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 active ? "text-primary" : "text-fg-muted hover:bg-surface-sunken hover:text-fg",
@@ -86,6 +101,78 @@ function NavLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: 
   );
 }
 
+/** Projects live below the fixed nav; each links to a filtered dashboard. */
+function ProjectLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { data: projects } = useProjects();
+  const [newOpen, setNewOpen] = React.useState(false);
+  const activeId = pathname.startsWith("/dashboard/projects/")
+    ? pathname.split("/")[3]
+    : searchParams.get("projectId");
+
+  if (collapsed) {
+    return (
+      <Tooltip content="New project">
+        <button
+          type="button"
+          onClick={() => setNewOpen(true)}
+          className="mt-2 flex w-full justify-center rounded-lg py-2 text-fg-subtle transition-colors hover:bg-surface-sunken hover:text-fg"
+        >
+          <FolderOpen className="h-[18px] w-[18px]" />
+          <NewProjectModal open={newOpen} onOpenChange={setNewOpen} />
+        </button>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="mb-1 flex items-center justify-between px-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Projects</span>
+        <button
+          type="button"
+          onClick={() => setNewOpen(true)}
+          aria-label="New project"
+          className="rounded p-1 text-fg-subtle transition-colors hover:bg-surface-sunken hover:text-fg"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {projects?.length ? (
+        <nav className="flex flex-col gap-0.5">
+          {projects.map((project) => {
+            const active = activeId === project._id;
+            return (
+              <Link
+                key={project._id}
+                href={`/dashboard/projects/${project._id}`}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                  active ? "bg-primary-soft font-medium text-primary" : "text-fg-muted hover:bg-surface-sunken hover:text-fg"
+                )}
+              >
+                <span className={cn("h-2 w-2 shrink-0 rounded-full", PROJECT_COLORS[project.color].dot)} />
+                <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                {project.todoCount ? (
+                  <span className="text-[10px] tabular-nums text-fg-subtle">{project.todoCount}</span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : (
+        <p className="px-3 py-1.5 text-xs text-fg-subtle">None yet</p>
+      )}
+
+      <NewProjectModal open={newOpen} onOpenChange={setNewOpen} />
+    </div>
+  );
+}
+
 function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const { data: user } = useMe();
   const logout = useLogout();
@@ -112,6 +199,7 @@ function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         <NavLinks collapsed={collapsed} onNavigate={onNavigate} />
+        <ProjectLinks collapsed={collapsed} onNavigate={onNavigate} />
       </div>
 
       <div className={cn("border-t border-border pt-3", collapsed && "px-0")}>

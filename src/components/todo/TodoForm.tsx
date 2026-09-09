@@ -15,6 +15,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, subtaskProgress } from "@/lib/utils";
+import { ProjectPicker } from "./ProjectPicker";
 import { fromDateInput, toDateInput } from "@/lib/date";
 import { todoSchema } from "@/lib/validation";
 import { useTags } from "@/hooks/useTodos";
@@ -27,6 +28,9 @@ export type TodoDraft = {
   tags: string[];
   subtasks: Subtask[];
   dueDate: string | null;
+  startDate: string | null;
+  estimate: number | null;
+  projectId: string | null;
   recurrence: TodoRecurrence;
   pinned: boolean;
 };
@@ -39,6 +43,9 @@ export const emptyDraft = (): TodoDraft => ({
   tags: [],
   subtasks: [],
   dueDate: null,
+  startDate: null,
+  estimate: null,
+  projectId: null,
   recurrence: "none",
   pinned: false,
 });
@@ -51,6 +58,9 @@ export const draftFromTodo = (todo: Todo): TodoDraft => ({
   tags: todo.tags || [],
   subtasks: (todo.subtasks || []).map((s) => ({ title: s.title, done: s.done })),
   dueDate: todo.dueDate || null,
+  startDate: todo.startDate || null,
+  estimate: todo.estimate ?? null,
+  projectId: todo.projectId || null,
   recurrence: todo.recurrence || "none",
   pinned: todo.pinned || false,
 });
@@ -275,6 +285,33 @@ export function TodoForm({
                   Clear due date
                 </button>
               )}
+            </Field>
+
+            <Field label="Project" htmlFor="todo-project">
+              <ProjectPicker value={draft.projectId} onChange={(projectId) => onChange({ projectId })} />
+            </Field>
+
+            <Field label="Start date" htmlFor="todo-start" hint="When work can begin.">
+              <Input
+                id="todo-start"
+                type="date"
+                value={toDateInput(draft.startDate)}
+                onChange={(e) => onChange({ startDate: fromDateInput(e.target.value) })}
+              />
+            </Field>
+
+            <Field label="Estimate" htmlFor="todo-estimate" hint="Effort in points. Leave blank for none.">
+              <Input
+                id="todo-estimate"
+                type="number"
+                min={0}
+                max={1000}
+                value={draft.estimate ?? ""}
+                onChange={(e) =>
+                  onChange({ estimate: e.target.value === "" ? null : Number(e.target.value) })
+                }
+                placeholder="e.g. 3"
+              />
             </Field>
 
             <Field

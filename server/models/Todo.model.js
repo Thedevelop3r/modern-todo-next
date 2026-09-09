@@ -59,6 +59,20 @@ const todoFields = {
     enum: ["none", "daily", "weekly", "monthly"],
     default: "none",
   },
+  projectId: {
+    type: Schema.Types.ObjectId,
+    ref: "Project",
+    default: null,
+    index: true,
+  },
+  startDate: { type: Date, default: null },
+  // Effort in points; null means "not estimated", which is distinct from zero.
+  estimate: { type: Number, default: null, min: 0, max: 1000 },
+  // Accumulated tracked time. `timerStartedAt` is set while a timer runs.
+  timeSpent: { type: Number, default: 0, min: 0 },
+  timerStartedAt: { type: Date, default: null },
+  // Todos that must finish before this one can.
+  blockedBy: [{ type: Schema.Types.ObjectId, ref: "Todo" }],
 };
 
 const todoSchema = new Schema(todoFields, { timestamps: true });
@@ -68,6 +82,8 @@ todoSchema.index({ ownerId: 1, archived: 1, status: 1 });
 todoSchema.index({ ownerId: 1, dueDate: 1 });
 todoSchema.index({ ownerId: 1, pinned: -1, order: 1, createdAt: -1 });
 todoSchema.index({ title: "text", description: "text" });
+todoSchema.index({ ownerId: 1, projectId: 1, archived: 1 });
+todoSchema.index({ ownerId: 1, startDate: 1 });
 
 /** Keep completedAt in step with status, whichever route did the update. */
 todoSchema.pre("save", function (next) {

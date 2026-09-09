@@ -8,6 +8,7 @@ import {
   Archive,
   BarChart3,
   CheckSquare,
+  Clock,
   FileText,
   Moon,
   Plus,
@@ -19,6 +20,7 @@ import { useTheme } from "next-themes";
 import { useUiStore } from "@/store/state";
 import { useTodos } from "@/hooks/useTodos";
 import { useDebounced } from "@/hooks/useFilters";
+import { useRecents } from "@/hooks/useProductivity";
 import { STATUS_DOT } from "@/lib/utils";
 
 /**
@@ -34,6 +36,7 @@ export function CommandPalette() {
 
   const { data } = useTodos({ q: debounced || undefined, limit: 6, page: 1 });
   const todos = debounced ? data?.data ?? [] : [];
+  const { recents } = useRecents();
 
   // Clear the query each time the palette closes.
   React.useEffect(() => {
@@ -115,6 +118,22 @@ export function CommandPalette() {
                         <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[todo.status || "pending"]}`} />
                         <span className="min-w-0 flex-1 truncate">{todo.title}</span>
                         <FileText className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />
+                      </Command.Item>
+                    ))}
+                  </Command.Group>
+                )}
+
+                {!debounced && recents.length > 0 && (
+                  <Command.Group heading="Recently viewed" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-fg-subtle">
+                    {recents.map((recent) => (
+                      <Command.Item
+                        key={recent.id}
+                        value={`recent-${recent.id}`}
+                        onSelect={() => run(() => router.push(`/dashboard/todo/${recent.id}`))}
+                        className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm text-fg data-[selected=true]:bg-surface-sunken"
+                      >
+                        <Clock className="h-4 w-4 shrink-0 text-fg-subtle" />
+                        <span className="min-w-0 flex-1 truncate">{recent.title}</span>
                       </Command.Item>
                     ))}
                   </Command.Group>

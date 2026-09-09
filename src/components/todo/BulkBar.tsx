@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Archive, CheckCircle2, Pin, Tag as TagIcon, Trash2, X } from "lucide-react";
+import { Archive, CheckCircle2, FolderOpen, Pencil, Pin, Tag as TagIcon, Trash2, X } from "lucide-react";
 import {
   Button,
   Input,
@@ -13,7 +13,8 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui";
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL } from "@/lib/utils";
+import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, PROJECT_COLORS, cn } from "@/lib/utils";
+import { useProjects } from "@/hooks/useProjects";
 
 export type BulkAction = { action: string; value?: unknown };
 
@@ -30,6 +31,7 @@ export function BulkBar({
   busy?: boolean;
 }) {
   const [tagValue, setTagValue] = React.useState("");
+  const { data: projects } = useProjects();
 
   const applyTag = () => {
     const value = tagValue.trim();
@@ -104,6 +106,33 @@ export function BulkBar({
                 </div>
               </MenuContent>
             </Menu>
+
+            <Menu>
+              <MenuTrigger asChild>
+                <Button variant="ghost" size="sm" disabled={busy}>
+                  <FolderOpen className="h-4 w-4" />
+                  Project
+                </Button>
+              </MenuTrigger>
+              <MenuContent align="center">
+                <MenuLabel>Move to project</MenuLabel>
+                <MenuItem onSelect={() => onAction({ action: "project", value: null })}>No project</MenuItem>
+                {projects?.map((project) => (
+                  <MenuItem
+                    key={project._id}
+                    icon={<span className={cn("h-2 w-2 rounded-full", PROJECT_COLORS[project.color].dot)} />}
+                    onSelect={() => onAction({ action: "project", value: project._id })}
+                  >
+                    {project.name}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </Menu>
+
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => onAction({ action: "edit" })}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
 
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => onAction({ action: "pin" })}>
               <Pin className="h-4 w-4" />

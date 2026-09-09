@@ -26,6 +26,21 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
+  // Sent only after the API asks for a second factor.
+  code: z.string().trim().max(20).optional(),
+});
+
+/** Mirrors the API: the password *and* the literal word. */
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, "Password is required"),
+  confirm: z.literal("DELETE", { message: "Type DELETE to confirm" }),
+});
+
+export const importSchema = z.object({
+  format: z.enum(["json", "csv"]),
+  data: z.string().min(1, "There is nothing to import").max(2_000_000),
+  dryRun: z.boolean(),
+  skipDuplicates: z.boolean().optional(),
 });
 
 export const changePasswordSchema = z
@@ -52,6 +67,9 @@ export const todoSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(24)).max(10, "At most 10 tags").default([]),
   subtasks: z.array(subtaskSchema).max(50, "At most 50 subtasks").default([]),
   dueDate: z.string().datetime().nullable().optional(),
+  startDate: z.string().datetime().nullable().optional(),
+  estimate: z.number().min(0).max(1000).nullable().optional(),
+  projectId: z.string().nullable().optional(),
   recurrence: z.enum(RECURRENCE_VALUES).default("none"),
   pinned: z.boolean().default(false),
   archived: z.boolean().default(false),
@@ -65,9 +83,10 @@ export const profileSchema = z.object({
 
 export const preferencesSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
-  defaultView: z.enum(["list", "grid", "board", "calendar"]).optional(),
+  defaultView: z.enum(["list", "grid", "board", "calendar", "table"]).optional(),
   pageSize: z.number().int().min(5).max(100).optional(),
   density: z.enum(["comfortable", "compact"]).optional(),
+  uiScale: z.enum(["small", "normal", "large"]).optional(),
 });
 
 export type TodoInput = z.input<typeof todoSchema>;

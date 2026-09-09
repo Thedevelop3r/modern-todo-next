@@ -46,8 +46,15 @@ export function useTrash(filter: TodoFilter) {
   });
 }
 
-export function useStats() {
-  return useQuery({ queryKey: todoKeys.stats, queryFn: api.stats });
+/**
+ * `api.stats` takes an options object, so it must be wrapped - passing it
+ * directly would hand it TanStack's query context as its first argument.
+ */
+export function useStats(options: { days?: number; projectId?: string } = {}) {
+  return useQuery({
+    queryKey: [...todoKeys.stats, options],
+    queryFn: () => api.stats(options),
+  });
 }
 
 export function useTags() {

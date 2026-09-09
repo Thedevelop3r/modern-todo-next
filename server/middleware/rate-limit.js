@@ -11,7 +11,13 @@ const makeLimiter = ({ windowMs, max, message }) =>
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => process.env.DISABLE_RATE_LIMIT === "true",
-    handler: (req, res) => res.status(429).json({ message }),
+    // `standardHeaders` sets RateLimit-Reset; Retry-After is what the browser
+    // and our own client read, so it is set explicitly and mirrored in the body.
+    handler: (req, res) => {
+      const retryAfter = Math.max(1, Math.ceil((req.rateLimit?.resetTime - Date.now()) / 1000) || Math.ceil(windowMs / 1000));
+      res.setHeader("Retry-After", String(retryAfter));
+      res.status(429).json({ message, retryAfter, requestId: req.id });
+    },
   });
 
 const loginLimiter = makeLimiter({

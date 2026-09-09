@@ -6,6 +6,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    /* The tests in src/__tests__ import with an explicit .ts extension, which is
+       what node's own test runner needs to resolve them without a bundler. */
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

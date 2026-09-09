@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
-import { CalendarDays, Columns3, KeyRound, LayoutGrid, List, Save, ShieldCheck, User } from "lucide-react";
+import { CalendarDays, Columns3, KeyRound, LayoutGrid, List, Save, ShieldCheck, Table2, User } from "lucide-react";
 import {
   AVATAR_OPTIONS,
   Avatar,
@@ -17,46 +17,25 @@ import {
   Switch,
   useToast,
 } from "@/components/ui";
+import { Section, SettingsTabs } from "@/components/settings/SettingsSection";
 import { useChangePassword, useMe, useUpdatePreferences, useUpdateProfile } from "@/hooks/useAuth";
 import { changePasswordSchema, passwordStrength, profileSchema } from "@/lib/validation";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
+
+const UI_SCALE_OPTIONS = [
+  { value: "small" as const, label: "Small" },
+  { value: "normal" as const, label: "Normal" },
+  { value: "large" as const, label: "Large" },
+];
 
 const VIEW_OPTIONS = [
   { value: "list" as const, label: "List", icon: <List className="h-3.5 w-3.5" /> },
   { value: "grid" as const, label: "Grid", icon: <LayoutGrid className="h-3.5 w-3.5" /> },
   { value: "board" as const, label: "Board", icon: <Columns3 className="h-3.5 w-3.5" /> },
   { value: "calendar" as const, label: "Calendar", icon: <CalendarDays className="h-3.5 w-3.5" /> },
+  { value: "table" as const, label: "Table", icon: <Table2 className="h-3.5 w-3.5" /> },
 ];
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardContent className="space-y-4">
-        <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-            {icon}
-          </span>
-          <div>
-            <h2 className="text-sm font-semibold text-fg">{title}</h2>
-            {description && <p className="mt-0.5 text-xs text-fg-muted">{description}</p>}
-          </div>
-        </div>
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
 
 /** Five-segment strength meter shown under new-password fields. */
 function StrengthMeter({ password }: { password: string }) {
@@ -161,6 +140,8 @@ export default function SettingsPage() {
 
   return (
     <PageTransition className="mx-auto max-w-2xl space-y-5">
+      <SettingsTabs />
+
       <Section icon={<User className="h-4 w-4" />} title="Profile" description="How you appear in the app.">
         <div className="flex items-center gap-4">
           <Avatar name={name || user?.name} avatar={avatar} size="lg" />
@@ -245,6 +226,18 @@ export default function SettingsPage() {
             ))}
           </NativeSelect>
         </Field>
+
+        <div>
+          <p className="mb-2 text-sm font-medium text-fg">Interface size</p>
+          <SegmentedControl
+            value={preferences?.uiScale || "normal"}
+            onChange={(value) => savePreference({ uiScale: value })}
+            options={UI_SCALE_OPTIONS}
+          />
+          <p className="mt-1.5 text-xs text-fg-muted">
+            Scales the whole interface, text and spacing together. Applies straight away.
+          </p>
+        </div>
 
         <label className="flex items-center justify-between gap-4">
           <span>

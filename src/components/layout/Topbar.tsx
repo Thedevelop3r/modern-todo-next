@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Command, Keyboard, Menu, Search } from "lucide-react";
 import { useUiStore } from "@/store/state";
 import { IconButton, ThemeToggle, Tooltip } from "@/components/ui";
+import { NotificationCentre } from "./NotificationCentre";
 
 const TITLES: Record<string, string> = {
   "/dashboard": "Todos",
@@ -12,6 +13,13 @@ const TITLES: Record<string, string> = {
   "/dashboard/archive": "Archive",
   "/dashboard/trash": "Trash",
   "/dashboard/settings": "Settings",
+  "/dashboard/settings/data": "Data & export",
+  "/dashboard/settings/security": "Security",
+  "/dashboard/templates": "Templates",
+  "/dashboard/tags": "Tags",
+  "/dashboard/today": "Today",
+  "/dashboard/upcoming": "Upcoming",
+  "/dashboard/review": "Weekly review",
   "/dashboard/create-todo": "New todo",
 };
 
@@ -20,6 +28,7 @@ function useTitle() {
   if (TITLES[pathname]) return TITLES[pathname];
   if (pathname.startsWith("/dashboard/edit-todo")) return "Edit todo";
   if (pathname.startsWith("/dashboard/todo")) return "Todo";
+  if (pathname.startsWith("/dashboard/projects")) return "Project";
   return "Dashboard";
 }
 
@@ -52,6 +61,8 @@ export function Topbar() {
         <IconButton label="Search" className="sm:hidden" onClick={() => setCommandOpen(true)}>
           <Search className="h-5 w-5" />
         </IconButton>
+
+        <NotificationCentre />
 
         <Tooltip content="Keyboard shortcuts (?)">
           <IconButton label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)} className="hidden sm:inline-flex">

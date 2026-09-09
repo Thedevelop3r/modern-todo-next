@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, CheckSquare, UserPlus } from "lucide-react";
 import { Button, Card, CardContent, Field, Input, ThemeToggle, useToast } from "@/components/ui";
 import { useRegister } from "@/hooks/useAuth";
+import { RateLimitNotice } from "@/components/layout/RateLimitNotice";
 import { passwordStrength, registerSchema } from "@/lib/validation";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +97,7 @@ export default function RegisterPage() {
           <Card>
             <CardContent>
               <form onSubmit={submit} className="space-y-4" noValidate>
+                <RateLimitNotice error={register.error} />
                 <Field label="Name" error={errors.name} htmlFor="name" required>
                   <Input
                     id="name"

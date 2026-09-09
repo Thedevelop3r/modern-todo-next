@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Copy, Link2, Pencil, Pin, PinOff, Repeat, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, FileStack, Link2, Pencil, Pin, PinOff, Repeat, Trash2 } from "lucide-react";
 import {
   Button,
   Card,
@@ -15,8 +15,18 @@ import {
   Tag,
   useToast,
 } from "@/components/ui";
-import { DueBadge, PriorityBadge, StatusBadge } from "@/components/todo/TodoBits";
+import { BlockedBadge, DueBadge, EstimateBadge, PriorityBadge, StartBadge, StatusBadge, TimeBadge } from "@/components/todo/TodoBits";
+import { ProjectBadge } from "@/components/todo/ProjectPicker";
+import {
+  ActivityPanel,
+  CommentsPanel,
+  DependencyPanel,
+  TimerControl,
+} from "@/components/todo/TodoDetailPanels";
+import { useProjects } from "@/hooks/useProjects";
+import { useTemplateFromTodo } from "@/hooks/useLibrary";
 import { useDeleteTodo, useDuplicateTodo, useTodo, useUpdateTodo } from "@/hooks/useTodos";
+import { useTrackRecent } from "@/hooks/useProductivity";
 import { formatDateTime, relativeTime } from "@/lib/date";
 import { subtaskProgress } from "@/lib/utils";
 
@@ -26,10 +36,15 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
   const { todoId } = params;
 
   const { data: todo, isLoading, isError, error } = useTodo(todoId);
+  const { data: projects } = useProjects();
   const updateTodo = useUpdateTodo();
   const duplicateTodo = useDuplicateTodo();
   const deleteTodo = useDeleteTodo();
+  const saveTemplate = useTemplateFromTodo();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+
+  // Opening a todo is what makes it "recent" - recorded once per visit.
+  useTrackRecent(todo);
 
   if (isLoading) {
     return (
@@ -51,6 +66,7 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
   }
 
   const progress = subtaskProgress(todo.subtasks);
+  const project = projects?.find((p) => p._id === todo.projectId);
 
   /** Subtasks are toggled in place and the whole array is written back. */
   const toggleSubtask = (index: number, done: boolean) => {
@@ -94,6 +110,25 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
             <Copy className="h-4 w-4" />
             Duplicate
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={saveTemplate.isPending}
+            onClick={() =>
+              saveTemplate.mutate(
+                { todoId },
+                {
+                  onSuccess: (template) =>
+                    toast.success("Saved as template", { description: template.name }),
+                  onError: (err) =>
+                    toast.error("Could not save template", { description: (err as Error).message }),
+                }
+              )
+            }
+          >
+            <FileStack className="h-4 w-4" />
+            Template
+          </Button>
           <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => setConfirmDelete(true)}>
             <Trash2 className="h-4 w-4" />
             Delete
@@ -113,6 +148,11 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
               <StatusBadge status={todo.status} />
               <PriorityBadge priority={todo.priority} />
               <DueBadge todo={todo} />
+              <StartBadge todo={todo} />
+              <BlockedBadge count={todo.blockedBy?.length || 0} />
+              <EstimateBadge estimate={todo.estimate} />
+              <TimeBadge todo={todo} />
+              <ProjectBadge project={project} />
               {todo.recurrence !== "none" && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary ring-1 ring-inset ring-primary/25">
                   <Repeat className="h-3 w-3" />
@@ -128,6 +168,10 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
           {todo.description && (
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">{todo.description}</p>
           )}
+
+          <div className="border-t border-border pt-4">
+            <TimerControl todo={todo} />
+          </div>
 
           {progress && (
             <div>
@@ -191,6 +235,12 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
           </div>
         </CardContent>
       </Card>
+
+      <DependencyPanel todo={todo} />
+
+      <CommentsPanel todoId={todoId} />
+
+      <ActivityPanel todoId={todoId} />
 
       <ConfirmDialog
         open={confirmDelete}

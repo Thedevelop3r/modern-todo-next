@@ -4,6 +4,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { OfflineBanner } from "@/components/layout/OfflineBanner";
+import { UiScaleEffect } from "@/components/layout/UiScale";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { ShortcutsModal } from "@/components/command/ShortcutsModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboard";
@@ -41,10 +43,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 sm:px-6">{children}</main>
+        <OfflineBanner />
+        <main id="main" tabIndex={-1} className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 sm:px-6">
+          {children}
+        </main>
       </div>
       <CommandPalette />
       <ShortcutsModal />
+      <UiScaleEffect scale={user.preferences?.uiScale} />
     </div>
   );
 }

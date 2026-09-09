@@ -24,6 +24,8 @@ export function useLogin() {
   return useMutation({
     mutationFn: api.login,
     onSuccess: (user) => {
+      // A 2FA challenge is a successful request that is not yet a session.
+      if (user?.twoFactorRequired) return;
       queryClient.setQueryData(meKey, user);
       router.push("/dashboard");
     },
