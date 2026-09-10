@@ -1,6 +1,6 @@
 # Modern Todo
 
-Written by [Bilal Amjad](https://github.com/Thedevelop3r). (claude assited)
+Written by [Bilal Amjad](https://github.com/Thedevelop3r). (Claude assisted)
 
 A personal todo application — **one Next.js project**. The UI is Next.js 14 (App
 Router, TypeScript, Tailwind) and the REST API is Express + Mongoose, both served
