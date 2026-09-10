@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { OfflineBanner } from "@/components/layout/OfflineBanner";
 import { UiScaleEffect } from "@/components/layout/UiScale";
+import { FontEffect, ThemeEffect } from "@/components/layout/ThemeVars";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { ShortcutsModal } from "@/components/command/ShortcutsModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboard";
@@ -51,6 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <CommandPalette />
       <ShortcutsModal />
       <UiScaleEffect scale={user.preferences?.uiScale} />
+      <ThemeEffect themeId={user.preferences?.themeId} theme={user.preferences?.theme} />
+      <FontEffect fontFamily={user.preferences?.fontFamily} />
     </div>
   );
 }

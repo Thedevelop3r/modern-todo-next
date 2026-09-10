@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { THEME_IDS } from "./themes.ts";
 
 /**
  * Single source of truth for shape rules. The API validates with the CommonJS
@@ -86,7 +87,14 @@ export const preferencesSchema = z.object({
   defaultView: z.enum(["list", "grid", "board", "calendar", "table"]).optional(),
   pageSize: z.number().int().min(5).max(100).optional(),
   density: z.enum(["comfortable", "compact"]).optional(),
-  uiScale: z.enum(["small", "normal", "large"]).optional(),
+  uiScale: z.enum(["xs", "small", "normal", "large", "xl"]).optional(),
+  themeId: z.enum(THEME_IDS as [string, ...string[]], { message: "Unknown theme" }).optional(),
+  fontFamily: z
+    .string()
+    .trim()
+    .max(64)
+    .regex(/^$|^[A-Za-z0-9][A-Za-z0-9 ]*$/, "That is not a valid font name")
+    .optional(),
 });
 
 export type TodoInput = z.input<typeof todoSchema>;

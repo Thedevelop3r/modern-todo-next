@@ -6,6 +6,15 @@ const STATUS = ["pending", "progress", "completed"];
 const PRIORITY = ["none", "low", "medium", "high", "urgent"];
 const RECURRENCE = ["none", "daily", "weekly", "monthly"];
 const VIEWS = ["list", "grid", "board", "calendar", "table"];
+const UI_SCALES = ["xs", "small", "normal", "large", "xl"];
+const THEME_IDS = require("../../shared/themes.json").map((theme) => theme.id);
+
+/** A Google Fonts family name, or "" for the built-in Inter. */
+const FONT_FAMILY = z
+  .string()
+  .trim()
+  .max(64)
+  .regex(/^$|^[A-Za-z0-9][A-Za-z0-9 ]*$/, "That is not a valid font name");
 
 const email = z.string().trim().toLowerCase().email("Enter a valid email address");
 const password = z.string().min(8, "Password must be at least 8 characters").max(128);
@@ -42,7 +51,9 @@ const preferencesSchema = z
     defaultView: z.enum(VIEWS).optional(),
     pageSize: z.coerce.number().int().min(5).max(100).optional(),
     density: z.enum(["comfortable", "compact"]).optional(),
-    uiScale: z.enum(["small", "normal", "large"]).optional(),
+    uiScale: z.enum(UI_SCALES).optional(),
+    themeId: z.enum(THEME_IDS, { message: "Unknown theme" }).optional(),
+    fontFamily: FONT_FAMILY.optional(),
   })
   .strip();
 

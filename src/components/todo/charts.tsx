@@ -38,12 +38,55 @@ export const CHART_COLORS = {
   },
 };
 
+/**
+ * Reads a semantic token off <html> as a CSS colour.
+ *
+ * The chart *chrome* has to follow the user's theme - a grid line drawn in a
+ * stale grey floats on a tinted surface - but the data colours above must not,
+ * so only grid/axis/surface are resolved this way.
+ */
+function readToken(name: string) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+  return value ? `rgb(${value})` : "";
+}
+
 export function useChartColors() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const [chrome, setChrome] = React.useState<{ grid: string; axis: string; surface: string } | null>(null);
+
   React.useEffect(() => setMounted(true), []);
+
+  // next-themes swaps a class and the theme picker swaps data-theme; either one
+  // changes what the tokens resolve to, so both have to force a re-read. The
+  // values live in state because the DOM is not something React can track.
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const read = () =>
+      setChrome({
+        grid: readToken("border"),
+        axis: readToken("fg-subtle"),
+        surface: readToken("surface"),
+      });
+
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(root, { attributes: true, attributeFilter: ["class", "data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
   // Before hydration the theme is unknown; light is the safe first paint.
-  return mounted && resolvedTheme === "dark" ? CHART_COLORS.dark : CHART_COLORS.light;
+  const base = mounted && resolvedTheme === "dark" ? CHART_COLORS.dark : CHART_COLORS.light;
+
+  return React.useMemo(
+    () => ({
+      ...base,
+      grid: chrome?.grid || base.grid,
+      axis: chrome?.axis || base.axis,
+      surface: chrome?.surface || base.surface,
+    }),
+    [base, chrome]
+  );
 }
 
 /** Shared tooltip shell so every chart reads the same. */

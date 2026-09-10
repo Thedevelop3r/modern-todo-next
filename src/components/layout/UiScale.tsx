@@ -4,10 +4,15 @@ import * as React from "react";
 
 /** Root font sizes. Everything in the UI is rem-based, so this scales all of it. */
 export const UI_SCALES: Record<UiScale, { label: string; rootPx: number }> = {
+  xs: { label: "XS", rootPx: 13 },
   small: { label: "Small", rootPx: 14 },
   normal: { label: "Normal", rootPx: 16 },
   large: { label: "Large", rootPx: 18 },
+  xl: { label: "XL", rootPx: 20 },
 };
+
+/** Ordered for the settings control, smallest first. */
+export const UI_SCALE_ORDER: UiScale[] = ["xs", "small", "normal", "large", "xl"];
 
 /**
  * Applies the saved UI scale to <html>. It is written as a style rather than a
