@@ -24,6 +24,7 @@ export const API_ENDPOINT = {
   view: `${API_BASE}/view`,
   template: `${API_BASE}/template`,
   account: `${API_BASE}/account`,
+  fonts: `${API_BASE}/fonts`,
 };
 
 /** Error carrying the API's status code so callers can branch on it. */
@@ -176,6 +177,31 @@ export const api = {
 
   updatePreferences: (input: Partial<Preferences>) =>
     request<User>(API_ENDPOINT.preferences, { method: "PUT", body: body(input) }),
+
+  // ---- fonts: the Google Fonts proxy, see server/controller/Font.controller.js ----
+
+  /** Typeahead. The family list is filtered server-side so it stays out of the bundle. */
+  searchFonts: (q: string) =>
+    request<Array<{ family: string; category: string }>>(withQuery(`${API_ENDPOINT.fonts}/search`, { q })),
+
+  /**
+   * Loads a family's stylesheet purely to find out whether it exists - this is
+   * what lets the settings field accept a free-text name that is not in the
+   * bundled list. Resolves on success, throws the API's 400 otherwise.
+   */
+  checkFont: async (family: string) => {
+    const response = await fetch(withQuery(`${API_ENDPOINT.fonts}/css`, { family }), {
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const message = await response
+        .json()
+        .then((data) => data.message)
+        .catch(() => "Could not load that font");
+      throw new ApiError(message, response.status);
+    }
+    return family;
+  },
 
   // ---- data: export, import, sample ----
   exportTodos: (format: "json" | "csv" = "json") =>

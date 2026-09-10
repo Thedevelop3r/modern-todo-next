@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useTheme } from "next-themes";
-import { CalendarDays, Columns3, KeyRound, LayoutGrid, List, Save, ShieldCheck, Table2, User } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Columns3, KeyRound, LayoutGrid, List, Palette, Save, ShieldCheck, Table2, User } from "lucide-react";
 import {
   AVATAR_OPTIONS,
   Avatar,
@@ -14,7 +14,6 @@ import {
   NativeSelect,
   PageTransition,
   SegmentedControl,
-  Switch,
   useToast,
 } from "@/components/ui";
 import { Section, SettingsTabs } from "@/components/settings/SettingsSection";
@@ -22,12 +21,8 @@ import { useChangePassword, useMe, useUpdatePreferences, useUpdateProfile } from
 import { changePasswordSchema, passwordStrength, profileSchema } from "@/lib/validation";
 import { formatDateTime } from "@/lib/date";
 import { cn } from "@/lib/utils";
-
-const UI_SCALE_OPTIONS = [
-  { value: "small" as const, label: "Small" },
-  { value: "normal" as const, label: "Normal" },
-  { value: "large" as const, label: "Large" },
-];
+import { UI_SCALES } from "@/components/layout/UiScale";
+import { DEFAULT_FONT_LABEL, themeById } from "@/lib/themes";
 
 const VIEW_OPTIONS = [
   { value: "list" as const, label: "List", icon: <List className="h-3.5 w-3.5" /> },
@@ -61,7 +56,6 @@ function StrengthMeter({ password }: { password: string }) {
 
 export default function SettingsPage() {
   const toast = useToast();
-  const { theme, setTheme } = useTheme();
   const { data: user } = useMe();
 
   const updateProfile = useUpdateProfile();
@@ -189,22 +183,6 @@ export default function SettingsPage() {
         description="Saved to your account, so they follow you between devices."
       >
         <div>
-          <p className="mb-2 text-sm font-medium text-fg">Theme</p>
-          <SegmentedControl
-            value={(theme as ThemePreference) || "system"}
-            onChange={(value) => {
-              setTheme(value);
-              savePreference({ theme: value });
-            }}
-            options={[
-              { value: "light", label: "Light" },
-              { value: "system", label: "System" },
-              { value: "dark", label: "Dark" },
-            ]}
-          />
-        </div>
-
-        <div>
           <p className="mb-2 text-sm font-medium text-fg">Default view</p>
           <SegmentedControl
             value={preferences?.defaultView || "list"}
@@ -227,29 +205,20 @@ export default function SettingsPage() {
           </NativeSelect>
         </Field>
 
-        <div>
-          <p className="mb-2 text-sm font-medium text-fg">Interface size</p>
-          <SegmentedControl
-            value={preferences?.uiScale || "normal"}
-            onChange={(value) => savePreference({ uiScale: value })}
-            options={UI_SCALE_OPTIONS}
-          />
-          <p className="mt-1.5 text-xs text-fg-muted">
-            Scales the whole interface, text and spacing together. Applies straight away.
-          </p>
-        </div>
-
-        <label className="flex items-center justify-between gap-4">
+        {/* Colour, font and size all live on the Appearance tab now. */}
+        <Link
+          href="/dashboard/settings/appearance"
+          className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-sunken px-3 py-2.5 transition-colors hover:border-border-strong"
+        >
           <span>
-            <span className="block text-sm font-medium text-fg">Compact cards</span>
-            <span className="block text-xs text-fg-muted">Fit more todos on screen at once.</span>
+            <span className="block text-sm font-medium text-fg">Appearance</span>
+            <span className="block text-xs text-fg-muted">
+              {themeById(preferences?.themeId).name} · {preferences?.fontFamily || DEFAULT_FONT_LABEL} ·{" "}
+              {UI_SCALES[preferences?.uiScale || "normal"].label}
+            </span>
           </span>
-          <Switch
-            checked={preferences?.density === "compact"}
-            onCheckedChange={(checked) => savePreference({ density: checked ? "compact" : "comfortable" })}
-            label="Compact cards"
-          />
-        </label>
+          <Palette className="h-4 w-4 shrink-0 text-fg-subtle" />
+        </Link>
       </Section>
 
       <Section icon={<KeyRound className="h-4 w-4" />} title="Change password" description="Use at least 8 characters.">

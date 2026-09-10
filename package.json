@@ -17,7 +17,9 @@
     "test:watch": "node --test --watch \"server/__tests__/**/*.test.js\"",
     "test:api": "node --test \"server/__tests__/**/*.test.js\"",
     "test:web": "node --test \"src/__tests__/**/*.test.ts\"",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "themes": "node scripts/generate-themes.mjs",
+    "fonts": "node scripts/generate-font-list.mjs"
   },
   "engines": {
     "node": ">=24"

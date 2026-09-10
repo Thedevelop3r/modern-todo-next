@@ -1,0 +1,798 @@
+[
+  {
+    "id": "midnight-steel",
+    "name": "Midnight Steel",
+    "collection": "men",
+    "font": "Inter",
+    "hues": {
+      "primary": 225,
+      "accent": 200,
+      "neutral": 230
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "graphite",
+    "name": "Graphite",
+    "collection": "men",
+    "font": "Space Grotesk",
+    "hues": {
+      "primary": 250,
+      "accent": 220,
+      "neutral": 250
+    },
+    "chroma": {
+      "primary": 0.06,
+      "neutral": 0.006
+    }
+  },
+  {
+    "id": "carbon-fibre",
+    "name": "Carbon Fibre",
+    "collection": "men",
+    "font": "Archivo",
+    "hues": {
+      "primary": 210,
+      "accent": 180,
+      "neutral": 220
+    },
+    "chroma": {
+      "primary": 0.09,
+      "neutral": 0.008
+    }
+  },
+  {
+    "id": "deep-ocean",
+    "name": "Deep Ocean",
+    "collection": "men",
+    "font": "Manrope",
+    "hues": {
+      "primary": 235,
+      "accent": 195,
+      "neutral": 230
+    },
+    "chroma": {
+      "primary": 0.15,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "slate-storm",
+    "name": "Slate Storm",
+    "collection": "men",
+    "font": "IBM Plex Sans",
+    "hues": {
+      "primary": 250,
+      "accent": 215,
+      "neutral": 245
+    },
+    "chroma": {
+      "primary": 0.1,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "gunmetal",
+    "name": "Gunmetal",
+    "collection": "men",
+    "font": "Barlow",
+    "hues": {
+      "primary": 245,
+      "accent": 265,
+      "neutral": 250
+    },
+    "chroma": {
+      "primary": 0.07,
+      "neutral": 0.008
+    }
+  },
+  {
+    "id": "forest-ranger",
+    "name": "Forest Ranger",
+    "collection": "men",
+    "font": "Sora",
+    "hues": {
+      "primary": 155,
+      "accent": 110,
+      "neutral": 150
+    },
+    "chroma": {
+      "primary": 0.13,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "obsidian",
+    "name": "Obsidian",
+    "collection": "men",
+    "font": "Chivo",
+    "hues": {
+      "primary": 285,
+      "accent": 255,
+      "neutral": 280
+    },
+    "chroma": {
+      "primary": 0.11,
+      "neutral": 0.008
+    }
+  },
+  {
+    "id": "cobalt-edge",
+    "name": "Cobalt Edge",
+    "collection": "men",
+    "font": "Rubik",
+    "hues": {
+      "primary": 255,
+      "accent": 190,
+      "neutral": 255
+    },
+    "chroma": {
+      "primary": 0.18,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "bourbon-oak",
+    "name": "Bourbon Oak",
+    "collection": "men",
+    "font": "Work Sans",
+    "hues": {
+      "primary": 55,
+      "accent": 30,
+      "neutral": 60
+    },
+    "chroma": {
+      "primary": 0.13,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "ironclad",
+    "name": "Ironclad",
+    "collection": "men",
+    "font": "Public Sans",
+    "hues": {
+      "primary": 230,
+      "accent": 240,
+      "neutral": 235
+    },
+    "chroma": {
+      "primary": 0.05,
+      "neutral": 0.005
+    }
+  },
+  {
+    "id": "nordic-pine",
+    "name": "Nordic Pine",
+    "collection": "men",
+    "font": "Inter",
+    "hues": {
+      "primary": 175,
+      "accent": 145,
+      "neutral": 190
+    },
+    "chroma": {
+      "primary": 0.11,
+      "neutral": 0.011
+    }
+  },
+  {
+    "id": "titanium",
+    "name": "Titanium",
+    "collection": "men",
+    "font": "Saira",
+    "hues": {
+      "primary": 200,
+      "accent": 230,
+      "neutral": 210
+    },
+    "chroma": {
+      "primary": 0.07,
+      "neutral": 0.007
+    }
+  },
+  {
+    "id": "crimson-garage",
+    "name": "Crimson Garage",
+    "collection": "men",
+    "font": "Titillium Web",
+    "hues": {
+      "primary": 25,
+      "accent": 15,
+      "neutral": 20
+    },
+    "chroma": {
+      "primary": 0.17,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "blueprint",
+    "name": "Blueprint",
+    "collection": "men",
+    "font": "IBM Plex Sans",
+    "hues": {
+      "primary": 245,
+      "accent": 210,
+      "neutral": 240
+    },
+    "chroma": {
+      "primary": 0.14,
+      "neutral": 0.016
+    }
+  },
+  {
+    "id": "basalt",
+    "name": "Basalt",
+    "collection": "men",
+    "font": "Red Hat Display",
+    "hues": {
+      "primary": 270,
+      "accent": 300,
+      "neutral": 275
+    },
+    "chroma": {
+      "primary": 0.06,
+      "neutral": 0.007
+    }
+  },
+  {
+    "id": "copper-wire",
+    "name": "Copper Wire",
+    "collection": "men",
+    "font": "Exo 2",
+    "hues": {
+      "primary": 45,
+      "accent": 25,
+      "neutral": 50
+    },
+    "chroma": {
+      "primary": 0.15,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "gulfstream",
+    "name": "Gulfstream",
+    "collection": "men",
+    "font": "Manrope",
+    "hues": {
+      "primary": 205,
+      "accent": 165,
+      "neutral": 210
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "charcoal-ember",
+    "name": "Charcoal Ember",
+    "collection": "men",
+    "font": "Archivo",
+    "hues": {
+      "primary": 35,
+      "accent": 20,
+      "neutral": 40
+    },
+    "chroma": {
+      "primary": 0.16,
+      "neutral": 0.008
+    }
+  },
+  {
+    "id": "alpine-dusk",
+    "name": "Alpine Dusk",
+    "collection": "men",
+    "font": "Sora",
+    "hues": {
+      "primary": 265,
+      "accent": 230,
+      "neutral": 260
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.013
+    }
+  },
+  {
+    "id": "rose-quartz",
+    "name": "Rose Quartz",
+    "collection": "women",
+    "font": "Manrope",
+    "hues": {
+      "primary": 350,
+      "accent": 320,
+      "neutral": 350
+    },
+    "chroma": {
+      "primary": 0.16,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "lavender-fields",
+    "name": "Lavender Fields",
+    "collection": "women",
+    "font": "Quicksand",
+    "hues": {
+      "primary": 300,
+      "accent": 275,
+      "neutral": 300
+    },
+    "chroma": {
+      "primary": 0.15,
+      "neutral": 0.013
+    }
+  },
+  {
+    "id": "blush-petal",
+    "name": "Blush Petal",
+    "collection": "women",
+    "font": "Nunito",
+    "hues": {
+      "primary": 15,
+      "accent": 345,
+      "neutral": 20
+    },
+    "chroma": {
+      "primary": 0.14,
+      "neutral": 0.011
+    }
+  },
+  {
+    "id": "mauve-silk",
+    "name": "Mauve Silk",
+    "collection": "women",
+    "font": "Poppins",
+    "hues": {
+      "primary": 325,
+      "accent": 290,
+      "neutral": 325
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "peony",
+    "name": "Peony",
+    "collection": "women",
+    "font": "Raleway",
+    "hues": {
+      "primary": 355,
+      "accent": 330,
+      "neutral": 355
+    },
+    "chroma": {
+      "primary": 0.19,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "coral-reef",
+    "name": "Coral Reef",
+    "collection": "women",
+    "font": "Outfit",
+    "hues": {
+      "primary": 30,
+      "accent": 195,
+      "neutral": 35
+    },
+    "chroma": {
+      "primary": 0.17,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "orchid",
+    "name": "Orchid",
+    "collection": "women",
+    "font": "Josefin Sans",
+    "hues": {
+      "primary": 320,
+      "accent": 280,
+      "neutral": 315
+    },
+    "chroma": {
+      "primary": 0.18,
+      "neutral": 0.013
+    }
+  },
+  {
+    "id": "champagne",
+    "name": "Champagne",
+    "collection": "women",
+    "font": "Cormorant Garamond",
+    "hues": {
+      "primary": 80,
+      "accent": 50,
+      "neutral": 85
+    },
+    "chroma": {
+      "primary": 0.11,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "sage-garden",
+    "name": "Sage Garden",
+    "collection": "women",
+    "font": "Karla",
+    "hues": {
+      "primary": 145,
+      "accent": 110,
+      "neutral": 140
+    },
+    "chroma": {
+      "primary": 0.1,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "dusty-rose",
+    "name": "Dusty Rose",
+    "collection": "women",
+    "font": "Mulish",
+    "hues": {
+      "primary": 10,
+      "accent": 340,
+      "neutral": 15
+    },
+    "chroma": {
+      "primary": 0.11,
+      "neutral": 0.013
+    }
+  },
+  {
+    "id": "lilac-mist",
+    "name": "Lilac Mist",
+    "collection": "women",
+    "font": "Comfortaa",
+    "hues": {
+      "primary": 290,
+      "accent": 265,
+      "neutral": 290
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.011
+    }
+  },
+  {
+    "id": "terracotta-bloom",
+    "name": "Terracotta Bloom",
+    "collection": "women",
+    "font": "Lora",
+    "hues": {
+      "primary": 40,
+      "accent": 15,
+      "neutral": 45
+    },
+    "chroma": {
+      "primary": 0.15,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "cherry-blossom",
+    "name": "Cherry Blossom",
+    "collection": "women",
+    "font": "Jost",
+    "hues": {
+      "primary": 345,
+      "accent": 315,
+      "neutral": 345
+    },
+    "chroma": {
+      "primary": 0.13,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "plum-velvet",
+    "name": "Plum Velvet",
+    "collection": "women",
+    "font": "Playfair Display",
+    "hues": {
+      "primary": 330,
+      "accent": 295,
+      "neutral": 325
+    },
+    "chroma": {
+      "primary": 0.16,
+      "neutral": 0.015
+    }
+  },
+  {
+    "id": "seafoam",
+    "name": "Seafoam",
+    "collection": "women",
+    "font": "DM Sans",
+    "hues": {
+      "primary": 175,
+      "accent": 150,
+      "neutral": 175
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.011
+    }
+  },
+  {
+    "id": "apricot",
+    "name": "Apricot",
+    "collection": "women",
+    "font": "Figtree",
+    "hues": {
+      "primary": 55,
+      "accent": 25,
+      "neutral": 60
+    },
+    "chroma": {
+      "primary": 0.16,
+      "neutral": 0.013
+    }
+  },
+  {
+    "id": "magnolia",
+    "name": "Magnolia",
+    "collection": "women",
+    "font": "Marcellus",
+    "hues": {
+      "primary": 100,
+      "accent": 70,
+      "neutral": 105
+    },
+    "chroma": {
+      "primary": 0.09,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "berry-sorbet",
+    "name": "Berry Sorbet",
+    "collection": "women",
+    "font": "Urbanist",
+    "hues": {
+      "primary": 5,
+      "accent": 330,
+      "neutral": 355
+    },
+    "chroma": {
+      "primary": 0.18,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "golden-hour",
+    "name": "Golden Hour",
+    "collection": "women",
+    "font": "Sen",
+    "hues": {
+      "primary": 70,
+      "accent": 35,
+      "neutral": 75
+    },
+    "chroma": {
+      "primary": 0.15,
+      "neutral": 0.015
+    }
+  },
+  {
+    "id": "powder-blue",
+    "name": "Powder Blue",
+    "collection": "women",
+    "font": "Livvic",
+    "hues": {
+      "primary": 235,
+      "accent": 200,
+      "neutral": 230
+    },
+    "chroma": {
+      "primary": 0.12,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "indigo",
+    "name": "Indigo",
+    "collection": "other",
+    "font": "",
+    "hues": {
+      "primary": 275,
+      "accent": 185,
+      "neutral": 262
+    },
+    "chroma": {
+      "primary": 0.17,
+      "neutral": 0.01
+    }
+  },
+  {
+    "id": "nord",
+    "name": "Nord",
+    "collection": "other",
+    "font": "IBM Plex Sans",
+    "hues": {
+      "primary": 225,
+      "accent": 195,
+      "neutral": 250
+    },
+    "chroma": {
+      "primary": 0.1,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "solar-sand",
+    "name": "Solar Sand",
+    "collection": "other",
+    "font": "Lora",
+    "hues": {
+      "primary": 65,
+      "accent": 40,
+      "neutral": 80
+    },
+    "chroma": {
+      "primary": 0.13,
+      "neutral": 0.016
+    }
+  },
+  {
+    "id": "monochrome",
+    "name": "Monochrome",
+    "collection": "other",
+    "font": "",
+    "hues": {
+      "primary": 0,
+      "accent": 0,
+      "neutral": 0
+    },
+    "chroma": {
+      "primary": 0.0,
+      "neutral": 0.0
+    },
+    "overrides": {
+      "light": {
+        "primary": "24 24 27",
+        "primary-fg": "255 255 255",
+        "ring": "24 24 27"
+      },
+      "dark": {
+        "primary": "244 244 245",
+        "primary-fg": "24 24 27",
+        "ring": "244 244 245"
+      }
+    }
+  },
+  {
+    "id": "high-contrast",
+    "name": "High Contrast",
+    "collection": "other",
+    "font": "",
+    "hues": {
+      "primary": 250,
+      "accent": 250,
+      "neutral": 250
+    },
+    "chroma": {
+      "primary": 0.1,
+      "neutral": 0.004
+    },
+    "overrides": {
+      "light": {
+        "bg": "255 255 255",
+        "surface": "255 255 255",
+        "surface-raised": "255 255 255",
+        "surface-sunken": "242 242 242",
+        "border": "90 90 90",
+        "border-strong": "0 0 0",
+        "fg": "0 0 0",
+        "fg-muted": "38 38 38",
+        "fg-subtle": "82 82 82",
+        "primary": "0 0 160",
+        "primary-fg": "255 255 255",
+        "primary-soft": "230 230 255",
+        "ring": "0 0 160",
+        "shadow-color": "0 0 0"
+      },
+      "dark": {
+        "bg": "0 0 0",
+        "surface": "0 0 0",
+        "surface-raised": "23 23 23",
+        "surface-sunken": "0 0 0",
+        "border": "150 150 150",
+        "border-strong": "255 255 255",
+        "fg": "255 255 255",
+        "fg-muted": "228 228 228",
+        "fg-subtle": "190 190 190",
+        "primary": "166 186 255",
+        "primary-fg": "0 0 0",
+        "primary-soft": "26 26 64",
+        "ring": "166 186 255",
+        "shadow-color": "0 0 0"
+      }
+    }
+  },
+  {
+    "id": "matcha",
+    "name": "Matcha",
+    "collection": "other",
+    "font": "DM Sans",
+    "hues": {
+      "primary": 130,
+      "accent": 95,
+      "neutral": 125
+    },
+    "chroma": {
+      "primary": 0.14,
+      "neutral": 0.012
+    }
+  },
+  {
+    "id": "slate-mint",
+    "name": "Slate Mint",
+    "collection": "other",
+    "font": "Manrope",
+    "hues": {
+      "primary": 165,
+      "accent": 230,
+      "neutral": 220
+    },
+    "chroma": {
+      "primary": 0.11,
+      "neutral": 0.009
+    }
+  },
+  {
+    "id": "dracula",
+    "name": "Dracula",
+    "collection": "other",
+    "font": "Source Sans 3",
+    "hues": {
+      "primary": 290,
+      "accent": 325,
+      "neutral": 285
+    },
+    "chroma": {
+      "primary": 0.16,
+      "neutral": 0.014
+    }
+  },
+  {
+    "id": "sepia-reader",
+    "name": "Sepia Reader",
+    "collection": "other",
+    "font": "Merriweather",
+    "hues": {
+      "primary": 60,
+      "accent": 30,
+      "neutral": 65
+    },
+    "chroma": {
+      "primary": 0.1,
+      "neutral": 0.02
+    }
+  },
+  {
+    "id": "neon-grid",
+    "name": "Neon Grid",
+    "collection": "other",
+    "font": "Space Grotesk",
+    "hues": {
+      "primary": 190,
+      "accent": 320,
+      "neutral": 265
+    },
+    "chroma": {
+      "primary": 0.19,
+      "neutral": 0.013
+    }
+  }
+]

@@ -3,7 +3,7 @@ const { errorHandler } = require("./error-handler");
 const { notFound } = require("./not-found");
 const { auth } = require("./auth");
 const { validate } = require("./validate");
-const { loginLimiter, registerLimiter } = require("./rate-limit");
+const { loginLimiter, registerLimiter, fontLimiter } = require("./rate-limit");
 
 module.exports = {
   checkinLogger,
@@ -13,4 +13,5 @@ module.exports = {
   validate,
   loginLimiter,
   registerLimiter,
+  fontLimiter,
 };

@@ -91,6 +91,8 @@ Package manager is **npm** (`package-lock.json`). TS `target` is `es2017`.
 | `npm run test:api` | `node --test "server/__tests__/**/*.test.js"` |
 | `npm run test:web` | `node --test "src/__tests__/**/*.test.ts"` |
 | `npm run icons` | regenerate the PWA icons |
+| `npm run themes` | expand `shared/themes.json` into `src/app/themes.css` + `src/lib/themes.generated.ts` |
+| `npm run fonts` | refresh `shared/google-fonts.json` from Google's public metadata |
 | `npm run lint` | `next lint` |
 
 ---
@@ -109,8 +111,11 @@ Package manager is **npm** (`package-lock.json`). TS `target` is `es2017`.
 | POST | `/api/user/logout` | clears the cookie |
 | GET | `/api/user/me` | current user (never includes the hash) |
 | PUT | `/api/user/update` | name / status / avatar only |
-| PUT | `/api/user/preferences` | theme, defaultView, pageSize, density |
+| PUT | `/api/user/preferences` | theme, themeId, fontFamily, defaultView, pageSize, density, uiScale |
 | PUT | `/api/user/password` | requires the current password |
+| GET | `/api/fonts/search` | typeahead over the committed Google Fonts family list |
+| GET | `/api/fonts/css` | one family's stylesheet, proxied and rewritten; a 400 means no such family |
+| GET | `/api/fonts/file/:id` | one woff2, by an id the `css` route issued |
 | GET | `/api/todo` | list — see query params below |
 | POST | `/api/todo` | create |
 | GET/PUT/DELETE | `/api/todo/:id` | read / update / delete-to-trash |
@@ -162,7 +167,8 @@ with no cookie, and success.
 ### Models
 
 - **User**: name, email (unique, lowercased), password (bcrypt via `pre("save")`),
-  role, status, `avatar`, `preferences{theme,defaultView,pageSize,density}`,
+  role, status, `avatar`,
+  `preferences{theme,themeId,fontFamily,defaultView,pageSize,density,uiScale}`,
   `lastLoginAt`, `tokenVersion`, `sessions[]`, `twoFactor{}`. Methods:
   `comparePassword`, `toSafeJSON` (which reduces `twoFactor` to a flag).
   `SAFE_SELECT` in `User.controller.js` is the only projection a route may see:
@@ -212,7 +218,8 @@ middleware; for `source: "query"` the parsed result lands on **`req.validatedQue
 | `/dashboard/archive` | archived todos |
 | `/dashboard/trash` | trash, restore, empty |
 | `/dashboard/analytics` | stat tiles + charts |
-| `/dashboard/settings` | profile, avatar, preferences, password |
+| `/dashboard/settings` | profile, avatar, default view, page size, password |
+| `/dashboard/settings/appearance` | the 50-theme gallery, font picker, text size, density |
 | `/dashboard/settings/data` | export, import with a dry-run preview, sample data |
 | `/dashboard/settings/security` | sessions, two-factor, audit log, account deletion |
 | `/dashboard/today` | focus view: overdue, due today, pinned, plus the pomodoro |
@@ -220,6 +227,7 @@ middleware; for `source: "query"` the parsed result lands on **`req.validatedQue
 | `/dashboard/review` | weekly review |
 | `/dashboard/projects/[projectId]` | one project: its todos and analytics |
 | `/dashboard/templates`, `/dashboard/tags` | template library, tag manager |
+| `/dashboard/templates/new` | new template — a page, not a dialog, like `/dashboard/create-todo` |
 
 ### Data layer
 
@@ -279,8 +287,9 @@ Two layers, deliberately separate:
   `#main` (present in the dashboard layout and `PublicShell`); toasts sit in a
   polite live region; nav links carry `aria-current="page"`; Radix returns focus
   when a dialog closes.
-- **UI scale**: `preferences.uiScale` sets the root font size via `UiScaleEffect`.
-  Every size in the app is rem-based, so text and spacing scale together.
+- **UI scale**: `preferences.uiScale` sets the root font size via `UiScaleEffect`
+  (five steps, 13–20px). Every size in the app is rem-based, so text and spacing
+  scale together.
 - **Rate limits**: only `/user/login` and `/user/register` are limited. A 429
   carries `Retry-After`, `ApiError` exposes it as `retryAfter`/`isRateLimited`,
   and `RateLimitNotice` counts it down on both auth forms.
@@ -295,6 +304,54 @@ Semantic CSS variables in `src/app/globals.css` (light on `:root`, dark on
 `border-border`), never raw palette colours, and never a **dynamically built class
 name** — Tailwind's scanner cannot see `` `bg-status-${x}` ``. Use the static maps
 in `src/lib/utils.ts` (`STATUS_DOT`, `PRIORITY_LABEL`, `tagColor`).
+
+**The 50 themes.** A theme is only a different set of values for those same
+tokens, which is why none of the above had to change. `shared/themes.json` holds
+one compact *seed* per theme (three hues, two chroma amounts, a default font, a
+collection of `men` / `women` / `other`); `scripts/generate-themes.mjs` expands
+each into a light and a dark block —
+
+```css
+[data-theme="rose-quartz"]      { --bg: …; --primary: …; }
+.dark[data-theme="rose-quartz"] { --bg: …; --primary: …; }
+```
+
+— in the generated `src/app/themes.css`, plus the typed catalogue in
+`src/lib/themes.generated.ts`. **Never edit either by hand; run `npm run themes`.**
+`globals.css` keeps its own `:root`/`.dark` blocks as the fallback for when no
+`data-theme` is set (the signed-out pages).
+
+Colours are computed in OKLCH so one lightness ramp reads the same across every
+hue, and the generator **fails the build** if a theme misses its contrast floors
+(fg/bg 7:1, fg-muted/surface 4.5:1, primary-fg/primary 4.5:1). Status and
+priority hues are fixed across all 50 — they encode meaning and must not become
+decorative.
+
+Theme and light/dark are **orthogonal**: `preferences.themeId` picks the palette,
+`preferences.theme` (next-themes) picks the mode, and every theme has both.
+`ThemeEffect`/`FontEffect` in `src/components/layout/ThemeVars.tsx` apply them,
+alongside `UiScaleEffect`, from the dashboard layout. A small inline script in
+`src/app/layout.tsx` restores both from `localStorage` before first paint, the
+way next-themes does for the mode — the account stays the source of truth.
+
+### Fonts
+
+`--font-sans` / `--font-mono` are variables too, so a font change is one write.
+Inter and JetBrains Mono are self-hosted by `next/font`; **any other family comes
+from Google Fonts through our own API**, never from the browser.
+
+That indirection is not optional: `next.config.js` sets `font-src 'self' data:`
+and `style-src 'self'`, so the browser cannot reach `fonts.googleapis.com` or
+`fonts.gstatic.com` at all. `server/controller/Font.controller.js` fetches the
+`css2` stylesheet, rewrites every `gstatic` URL to `/api/fonts/file/<id>`, and
+serves the woff2 itself. The CSP stays shut, `public/sw.js` caches the files like
+any same-origin GET (so a chosen font survives offline), and no user's browser
+talks to Google.
+
+`/api/fonts/file/:id` takes an **opaque id, never a URL** — ids are minted only
+while parsing a stylesheet Google sent us, which is what keeps the endpoint from
+being an SSRF. `shared/google-fonts.json` (`npm run fonts`) backs the typeahead;
+a name that is not in it is still accepted and checked against Google directly.
 
 ### Charts
 

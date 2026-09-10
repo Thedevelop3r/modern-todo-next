@@ -10,65 +10,22 @@ import {
   CardContent,
   ConfirmDialog,
   EmptyState,
-  Field,
-  Input,
-  Modal,
-  NativeSelect,
   PageTransition,
   Skeleton,
   Tag,
-  Textarea,
   useToast,
 } from "@/components/ui";
 import { PriorityBadge } from "@/components/todo/TodoBits";
-import { useCreateTemplate, useDeleteTemplate, useTemplates, useUseTemplate } from "@/hooks/useLibrary";
-import { PRIORITIES, PRIORITY_LABEL } from "@/lib/utils";
+import { useDeleteTemplate, useTemplates, useUseTemplate } from "@/hooks/useLibrary";
 
 export default function TemplatesPage() {
   const router = useRouter();
   const toast = useToast();
   const { data: templates, isLoading } = useTemplates();
-  const createTemplate = useCreateTemplate();
   const useTemplate = useUseTemplate();
   const deleteTemplate = useDeleteTemplate();
 
-  const [newOpen, setNewOpen] = React.useState(false);
   const [deleting, setDeleting] = React.useState<TodoTemplate | null>(null);
-  const [draft, setDraft] = React.useState({
-    name: "",
-    title: "",
-    description: "",
-    priority: "none" as TodoPriority,
-    tags: "",
-    dueInDays: "",
-  });
-
-  const create = () => {
-    if (!draft.name.trim() || !draft.title.trim()) return;
-
-    createTemplate.mutate(
-      {
-        name: draft.name.trim(),
-        title: draft.title.trim(),
-        description: draft.description.trim(),
-        priority: draft.priority,
-        tags: draft.tags
-          .split(",")
-          .map((t) => t.trim().toLowerCase())
-          .filter(Boolean)
-          .slice(0, 10),
-        dueInDays: draft.dueInDays === "" ? null : Number(draft.dueInDays),
-      },
-      {
-        onSuccess: () => {
-          toast.success("Template saved");
-          setNewOpen(false);
-          setDraft({ name: "", title: "", description: "", priority: "none", tags: "", dueInDays: "" });
-        },
-        onError: (error) => toast.error("Could not save template", { description: (error as Error).message }),
-      }
-    );
-  };
 
   return (
     <PageTransition className="mx-auto max-w-3xl space-y-5">
@@ -76,7 +33,7 @@ export default function TemplatesPage() {
         <p className="text-sm text-fg-muted">
           Reusable skeletons for work you do again and again.
         </p>
-        <Button size="sm" onClick={() => setNewOpen(true)}>
+        <Button size="sm" onClick={() => router.push("/dashboard/templates/new")}>
           <Plus className="h-4 w-4" />
           New template
         </Button>
@@ -94,7 +51,7 @@ export default function TemplatesPage() {
           title="No templates yet"
           description="Create one here, or save any existing todo as a template from its detail page."
           action={
-            <Button onClick={() => setNewOpen(true)}>
+            <Button onClick={() => router.push("/dashboard/templates/new")}>
               <Plus className="h-4 w-4" />
               New template
             </Button>
@@ -168,97 +125,6 @@ export default function TemplatesPage() {
           </AnimatePresence>
         </div>
       )}
-
-      <Modal
-        open={newOpen}
-        onOpenChange={setNewOpen}
-        title="New template"
-        description="A starting point you can spin into a todo whenever you need it."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setNewOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={create}
-              loading={createTemplate.isPending}
-              disabled={!draft.name.trim() || !draft.title.trim()}
-            >
-              Save template
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Field label="Template name" required htmlFor="tpl-name">
-            <Input
-              id="tpl-name"
-              autoFocus
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              placeholder="Weekly report"
-              maxLength={60}
-            />
-          </Field>
-
-          <Field label="Todo title" required htmlFor="tpl-title">
-            <Input
-              id="tpl-title"
-              value={draft.title}
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              placeholder="Write the weekly report"
-              maxLength={100}
-            />
-          </Field>
-
-          <Field label="Description" htmlFor="tpl-description">
-            <Textarea
-              id="tpl-description"
-              rows={3}
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              maxLength={1500}
-            />
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Priority" htmlFor="tpl-priority">
-              <NativeSelect
-                id="tpl-priority"
-                value={draft.priority}
-                onChange={(e) => setDraft({ ...draft, priority: e.target.value as TodoPriority })}
-              >
-                {PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {PRIORITY_LABEL[p]}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
-
-            <Field label="Due in (days)" htmlFor="tpl-due" hint="Blank for no due date.">
-              <Input
-                id="tpl-due"
-                type="number"
-                min={0}
-                max={3650}
-                value={draft.dueInDays}
-                onChange={(e) => setDraft({ ...draft, dueInDays: e.target.value })}
-                placeholder="7"
-              />
-            </Field>
-          </div>
-
-          <Field label="Tags" htmlFor="tpl-tags" hint="Comma separated.">
-            <Input
-              id="tpl-tags"
-              value={draft.tags}
-              onChange={(e) => setDraft({ ...draft, tags: e.target.value })}
-              placeholder="work, report"
-            />
-          </Field>
-        </div>
-      </Modal>
 
       <ConfirmDialog
         open={Boolean(deleting)}

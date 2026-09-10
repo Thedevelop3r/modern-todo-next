@@ -66,4 +66,31 @@ test("the UI scale preference round-trips like the others", async () => {
   assert.equal(saved.body.preferences.density, "compact");
 
   await alice.agent.put("/api/user/preferences").send({ uiScale: "enormous" }).expect(400);
+
+  // The two steps added for the appearance page.
+  await alice.agent.put("/api/user/preferences").send({ uiScale: "xs" }).expect(200);
+  await alice.agent.put("/api/user/preferences").send({ uiScale: "xl" }).expect(200);
+});
+
+test("the theme and font preferences round-trip, and reject anything unknown", async () => {
+  const alice = await makeUser(app);
+
+  const me = await alice.agent.get("/api/user/me").expect(200);
+  assert.equal(me.body.preferences.themeId, "indigo");
+  assert.equal(me.body.preferences.fontFamily, "");
+
+  const saved = await alice.agent
+    .put("/api/user/preferences")
+    .send({ themeId: "rose-quartz", fontFamily: "Cormorant Garamond" })
+    .expect(200);
+  assert.equal(saved.body.preferences.themeId, "rose-quartz");
+  assert.equal(saved.body.preferences.fontFamily, "Cormorant Garamond");
+
+  // A theme id must exist in shared/themes.json, or the CSS would not be there.
+  await alice.agent.put("/api/user/preferences").send({ themeId: "not-a-theme" }).expect(400);
+  await alice.agent.put("/api/user/preferences").send({ fontFamily: "../../etc/passwd" }).expect(400);
+
+  // Clearing the font goes back to the built-in Inter.
+  const cleared = await alice.agent.put("/api/user/preferences").send({ fontFamily: "" }).expect(200);
+  assert.equal(cleared.body.preferences.fontFamily, "");
 });

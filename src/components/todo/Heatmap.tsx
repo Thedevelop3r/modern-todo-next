@@ -10,15 +10,16 @@ import { cn } from "@/lib/utils";
  *
  * SEQUENTIAL encoding: one hue, magnitude carried by lightness. Index 0 is the
  * "nothing happened" cell and is deliberately a neutral, not a pale blue, so it
- * never reads as a low value. The five live steps are the same blue ramp used
+ * never reads as a low value - it is drawn from the live surface token so an
+ * empty day sinks into whichever theme is active. The five live steps are the same blue ramp used
  * for priority, and both sets pass the validator against this app's surfaces
  * (light end 2.11:1 on white, 2.62:1 on the dark surface).
  *
  * On dark, the ramp runs the other way - brighter means more - because a step
  * that sinks toward a dark surface would make busy days the quietest cells.
  */
-const LIGHT_STEPS = ["#eef2f7", "#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"];
-const DARK_STEPS = ["#1b2130", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#b7d3f6"];
+const LIGHT_STEPS = ["rgb(var(--surface-sunken))", "#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"];
+const DARK_STEPS = ["rgb(var(--surface-sunken))", "#1c5cab", "#2a78d6", "#5598e7", "#86b6ef", "#b7d3f6"];
 
 const WEEKDAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", ""];
 

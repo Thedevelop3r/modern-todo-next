@@ -4,7 +4,7 @@ type TodoRecurrence = "none" | "daily" | "weekly" | "monthly";
 type TodoView = "list" | "grid" | "board" | "calendar" | "table";
 type ThemePreference = "light" | "dark" | "system";
 type Density = "comfortable" | "compact";
-type UiScale = "small" | "normal" | "large";
+type UiScale = "xs" | "small" | "normal" | "large" | "xl";
 
 type Subtask = {
   _id?: string;
@@ -18,6 +18,10 @@ type Preferences = {
   pageSize: number;
   density: Density;
   uiScale: UiScale;
+  /** A theme id from shared/themes.json. Orthogonal to `theme` above. */
+  themeId: string;
+  /** A Google Fonts family, served through /api/fonts. "" = the built-in Inter. */
+  fontFamily: string;
 };
 
 type User = {

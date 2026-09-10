@@ -2,16 +2,21 @@
 
 const bcrypt = require("bcrypt");
 const { Mongoose } = require("../db.config");
+const THEME_IDS = require("../../shared/themes.json").map((theme) => theme.id);
 const { Schema, model } = Mongoose;
 
 const preferencesSchema = new Schema(
   {
     theme: { type: String, enum: ["light", "dark", "system"], default: "system" },
+    /** Which palette. Light/dark above stays orthogonal - every theme has both. */
+    themeId: { type: String, enum: THEME_IDS, default: "indigo" },
+    /** A Google Fonts family, proxied by /api/fonts. "" means the built-in Inter. */
+    fontFamily: { type: String, default: "", maxlength: 64 },
     defaultView: { type: String, enum: ["list", "grid", "board", "calendar", "table"], default: "list" },
     pageSize: { type: Number, min: 5, max: 100, default: 10 },
     density: { type: String, enum: ["comfortable", "compact"], default: "comfortable" },
     /** Root font size: everything is rem-based, so this scales the whole UI. */
-    uiScale: { type: String, enum: ["small", "normal", "large"], default: "normal" },
+    uiScale: { type: String, enum: ["xs", "small", "normal", "large", "xl"], default: "normal" },
   },
   { _id: false }
 );

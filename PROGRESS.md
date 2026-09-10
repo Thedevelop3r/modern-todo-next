@@ -15,7 +15,8 @@ Architecture lives in `CONTEXT.md`; this file is only *what is done and what is 
 ## Verify commands
 
 ```bash
-npm run build      # types + lint, 22 routes
+npm run build      # types + lint, 24 routes
+npm run themes     # regenerate the theme CSS after editing shared/themes.json
 npm test           # both suites: API then frontend
 npm run test:api   # server/__tests__ (node --test, mongodb-memory-server)
 npm run test:web   # src/__tests__ (node --test, node 24 strips the types)
@@ -34,6 +35,7 @@ npm run lint
 | 4 | Productivity: pomodoro, reminders, nav, undo | **DONE** |
 | 5 | Data & account: export, import, sessions, 2FA | **DONE** |
 | 6 | Platform: PWA, offline, a11y, health, FE tests | **DONE** |
+| 7 | Personalisation: 50 themes, Google Fonts, text size | **DONE** |
 
 Features 1–20 shipped earlier; this program adds 21–70.
 
@@ -199,3 +201,34 @@ Features 1–20 shipped earlier; this program adds 21–70.
   rem-based. Like `table` in B3 it had to be added in four places (model enum, server zod,
   `src/lib/validation.ts`, `src/types`).
 - **B6 state**: 97 API tests + 23 frontend tests passing, build + lint green, 22 routes.
+- **B7**: a theme is only a different set of the existing semantic tokens, so **no component
+  changed**. `shared/themes.json` holds 50 seeds (20 men, 20 women, 10 other);
+  `npm run themes` expands them into `src/app/themes.css` and `src/lib/themes.generated.ts`.
+  Never hand-edit either.
+- **B7**: colours are built in OKLCH, so one lightness ramp works across every hue, and the
+  generator **fails the build** on a contrast miss rather than shipping an unreadable theme.
+  Verified by deliberately crushing a seed's `--fg`. `primary` walks its lightness until it
+  can hold a button label — a fixed value cannot, because a mid green is too light for white
+  text and too dark for black.
+- **B7**: theme and light/dark stay **orthogonal** — every theme has both modes, so
+  `ThemeToggle` and the command palette entries were untouched. Dark surfaces carry 2.4x the
+  neutral chroma of light ones, or the tint is invisible against a near-black.
+- **B7**: fixed a latent bug — `preferences.theme` was written but never read back, so the
+  mode never actually followed a user between devices. `ThemeEffect` now applies it once on
+  load.
+- **B7**: fonts are **proxied, not linked**. The CSP (`font-src 'self'`) forbids the browser
+  from reaching Google, so the API fetches the stylesheet, rewrites every gstatic URL to
+  `/api/fonts/file/<id>` and serves the woff2. The CSP stays shut and the service worker
+  caches fonts for offline use for free.
+- **B7**: `/api/fonts/file/:id` takes an **opaque id, never a URL** — ids exist only after
+  parsing a stylesheet Google sent us, which is what closes the SSRF. Tested.
+- **B7**: the bundled family list is a convenience, not a gate: a typed name that is not in
+  it is still validated against Google and applied, which is what the user asked for.
+- **B7**: chart *chrome* (grid, axis, surface) now reads the live tokens, but the
+  categorical/ordinal/status data colours are unchanged — they encode meaning and must not
+  become decorative per theme.
+- **B7**: creating a template is a page (`/dashboard/templates/new`), not a dialog, matching
+  `/dashboard/create-todo` — the form was too long for a modal on a phone.
+- **B7 state**: 107 API tests + 29 frontend tests passing, build + lint green, 24 routes.
+  One pre-existing frontend failure remains in `quickAdd.test.ts` ("tomorrow" relative due
+  date) — it fails on a clean tree too and is unrelated to this batch.

@@ -32,4 +32,15 @@ const registerLimiter = makeLimiter({
   message: "Too many accounts created from this address. Try again later.",
 });
 
-module.exports = { loginLimiter, registerLimiter };
+/**
+ * The font proxy makes an outbound request to Google on a cache miss, so it is
+ * braked - generously, because a settings page legitimately previews several
+ * fonts in a row while the user browses.
+ */
+const fontLimiter = makeLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 120,
+  message: "Too many font lookups. Try again in a few minutes.",
+});
+
+module.exports = { loginLimiter, registerLimiter, fontLimiter };
