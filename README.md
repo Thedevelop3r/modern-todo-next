@@ -6,7 +6,14 @@ A personal todo application — **one Next.js project**. The UI is Next.js 14 (A
 Router, TypeScript, Tailwind) and the REST API is Express + Mongoose, both served
 from a single custom server on a single port.
 
+### Home
+![Home](project-screenshots/home.png)
+
+### Dashboard
 ![Dashboard](project-screenshots/dashboard.png)
+
+### Profile
+![Dashboard](project-screenshots/profile.png)
 
 ## Features
 
@@ -268,39 +275,3 @@ public; everything else requires the session cookie (or an
 
 You are free to use this code for your own projects, modify it, or publish it
 anywhere. Please give me credit if you use it. (@Thedevelop3r), thanks.
-
-## Images
-
-> These screenshots predate the redesign and will be refreshed.
-
-### home
-
-![Home](project-screenshots/home.png)
-
-### dashboard
-
-![Dashboard](project-screenshots/dashboard.png)
-
-### create todo
-
-![Create Todo](project-screenshots/create-todo.png)
-
-### edit todo
-
-![Edit Todo](project-screenshots/edit-todo.png)
-
-### register
-
-![Register](project-screenshots/register.png)
-
-### login
-
-![Login](project-screenshots/login.png)
-
-### todo
-
-![Todo-Preview](project-screenshots/todo-preview.png)
-
-### trash
-
-![Trash](project-screenshots/trash.png)
