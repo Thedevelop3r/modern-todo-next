@@ -1,0 +1,92 @@
+{
+  "id": "restaurant",
+  "label": "Restaurant",
+  "description": "Prep by station and shift, with par levels, suppliers and allergens.",
+  "icon": "utensils-crossed",
+  "capabilities": ["ordering"],
+  "terms": {
+    "todo": { "one": "Prep", "many": "Prep" },
+    "project": { "one": "Station", "many": "Stations" },
+    "template": { "one": "Recipe", "many": "Recipes" },
+    "tag": { "one": "Label", "many": "Labels" }
+  },
+  "statusLabels": { "pending": "To prep", "progress": "Prepping", "completed": "Ready" },
+  "priorityLabels": { "none": "Routine", "low": "Low", "medium": "Standard", "high": "Push", "urgent": "Service critical" },
+  "pdfTemplate": "restaurant",
+  "pdfHighlights": ["station", "shift", "covers"],
+  "todoFields": [
+    { "key": "station", "label": "Station", "type": "string", "max": 40, "placeholder": "Larder" },
+    {
+      "key": "shift",
+      "label": "Shift",
+      "type": "enum",
+      "options": [
+        { "value": "prep", "label": "Prep" },
+        { "value": "lunch", "label": "Lunch" },
+        { "value": "dinner", "label": "Dinner" },
+        { "value": "close", "label": "Close" }
+      ]
+    },
+    { "key": "covers", "label": "Covers", "type": "number", "min": 0, "max": 2000, "hint": "How many this batch is for." },
+    { "key": "supplier", "label": "Supplier", "type": "string", "max": 60 },
+    { "key": "parLevel", "label": "Par level", "type": "number", "min": 0, "max": 10000 },
+    { "key": "onHand", "label": "On hand", "type": "number", "min": 0, "max": 10000 },
+    {
+      "key": "allergens",
+      "label": "Allergens",
+      "type": "checklist",
+      "hint": "Tick what this dish contains. Printed on the prep sheet."
+    }
+  ],
+  "projectFields": [
+    { "key": "stationCode", "label": "Station code", "type": "string", "max": 20 },
+    { "key": "chef", "label": "Section chef", "type": "string", "max": 60 },
+    {
+      "key": "service",
+      "label": "Service",
+      "type": "enum",
+      "options": [
+        { "value": "breakfast", "label": "Breakfast" },
+        { "value": "lunch", "label": "Lunch" },
+        { "value": "dinner", "label": "Dinner" },
+        { "value": "all-day", "label": "All day" }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "id": "stations",
+      "label": "Stations",
+      "icon": "utensils-crossed",
+      "kind": "group",
+      "groupBy": "station",
+      "emptyLabel": "No station set",
+      "description": "Everything to prep, grouped by the station that does it."
+    },
+    {
+      "id": "prep-list",
+      "label": "Prep list",
+      "icon": "clipboard",
+      "kind": "group",
+      "groupBy": "shift",
+      "emptyLabel": "No shift set",
+      "description": "What each shift has to get through."
+    },
+    {
+      "id": "orders",
+      "label": "Orders",
+      "icon": "clipboard",
+      "kind": "stock",
+      "groupBy": "supplier",
+      "emptyLabel": "No supplier set",
+      "parField": "parLevel",
+      "onHandField": "onHand",
+      "description": "What is below par, grouped by the supplier who fills it."
+    }
+  ],
+  "seedTemplates": [
+    { "name": "Mise en place", "title": "Mise: ", "description": "Cut, portion, label, date, store." },
+    { "name": "Stock rotation", "title": "Rotate: ", "description": "FIFO, check dates, pull anything short." },
+    { "name": "Deep clean", "title": "Clean: ", "description": "Strip, degrease, sanitise, sign off." }
+  ]
+}

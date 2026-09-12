@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
 const { TodoController, CommentController, ActivityController } = require("../controller");
 const { validate } = require("../middleware");
+const { mountPdfRoutes } = require("./pdf.routes");
 const {
   createTodoSchema,
   updateTodoSchema,
@@ -38,6 +39,9 @@ router.put(
     res.status(200).json(result);
   })
 );
+
+// The PDF endpoints, declared before /:id for the same reason as the rest.
+mountPdfRoutes(router, "todo");
 
 router.get(
   "/:id/comments",
@@ -128,7 +132,7 @@ router.post(
   "/",
   validate(createTodoSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const newTodo = await TodoController.create({ body: req.body, userId: req.user._id });
+    const newTodo = await TodoController.create({ body: req.body, userId: req.user._id, user: req.user });
     res.status(201).json(newTodo);
   })
 );
@@ -137,7 +141,12 @@ router.put(
   "/:id",
   validate(updateTodoSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const updatedTodo = await TodoController.update({ todoId: req.params.id, body: req.body, userId: req.user._id });
+    const updatedTodo = await TodoController.update({
+      todoId: req.params.id,
+      body: req.body,
+      userId: req.user._id,
+      user: req.user,
+    });
     res.status(200).json(updatedTodo);
   })
 );

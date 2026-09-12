@@ -36,6 +36,7 @@ import {
   useTodos,
   useUpdateTodo,
 } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useUiStore } from "@/store/state";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,7 @@ export default function DashboardPage() {
   const { data: user } = useMe();
   const { filter, setFilter, reset, activeCount } = useTodoFilters(user?.preferences?.pageSize || 10);
   const { view, setView, selection, toggleSelected, selectMany, clearSelection, pushUndo } = useUiStore();
+  const { lower } = useVariant(filter.projectId);
 
   // Board and calendar need the whole set, not one page of it.
   const isWholeSetView = view === "board" || view === "calendar";
@@ -342,7 +344,7 @@ export default function DashboardPage() {
         activeCount > 0 ? (
           <EmptyState
             icon={<CheckSquare className="h-6 w-6" />}
-            title="No todos match these filters"
+            title={`No ${lower("todo", "many")} match these filters`}
             description="Try loosening or clearing the filters to see more."
             action={
               <Button variant="secondary" onClick={reset}>

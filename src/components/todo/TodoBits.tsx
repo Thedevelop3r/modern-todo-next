@@ -3,16 +3,19 @@
 import * as React from "react";
 import { AlertTriangle, ArrowDown, ArrowUp, Ban, CalendarDays, Circle, Clock, Gauge, Minus, Zap } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { cn, formatDuration, liveMinutes, PRIORITY_LABEL, STATUS_DOT, STATUS_LABEL, splitHighlight } from "@/lib/utils";
+import { cn, formatDuration, liveMinutes, STATUS_DOT, splitHighlight } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 import { dueLabel, dueState } from "@/lib/date";
 
 /** Status pill. Colour comes from the status tokens so both themes stay legible. */
 export function StatusBadge({ status = "pending", className }: { status?: TodoStatus; className?: string }) {
+  // The word varies by variant; the colour never does - it encodes meaning.
+  const { statusLabel } = useVariant();
   const tone = { pending: "danger", progress: "warning", completed: "success" } as const;
   return (
     <Badge tone={tone[status]} className={className}>
       <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} />
-      {STATUS_LABEL[status]}
+      {statusLabel(status)}
     </Badge>
   );
 }
@@ -26,6 +29,7 @@ const PRIORITY_ICON: Record<TodoPriority, React.ComponentType<{ className?: stri
 };
 
 export function PriorityBadge({ priority = "none", className }: { priority?: TodoPriority; className?: string }) {
+  const { priorityLabel } = useVariant();
   if (priority === "none") return null;
   const Icon = PRIORITY_ICON[priority];
   const tone = { low: "info", medium: "warning", high: "warning", urgent: "danger" } as const;
@@ -33,7 +37,7 @@ export function PriorityBadge({ priority = "none", className }: { priority?: Tod
   return (
     <Badge tone={tone[priority as keyof typeof tone]} className={className}>
       <Icon className="h-3 w-3" />
-      {PRIORITY_LABEL[priority]}
+      {priorityLabel(priority)}
     </Badge>
   );
 }

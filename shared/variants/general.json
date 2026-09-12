@@ -1,0 +1,43 @@
+{
+  "id": "general",
+  "label": "General",
+  "description": "The application as it comes: todos, projects, templates and tags.",
+  "icon": "check-square",
+  "capabilities": [],
+  "terms": {
+    "todo": {
+      "one": "Todo",
+      "many": "Todos"
+    },
+    "project": {
+      "one": "Project",
+      "many": "Projects"
+    },
+    "template": {
+      "one": "Template",
+      "many": "Templates"
+    },
+    "tag": {
+      "one": "Tag",
+      "many": "Tags"
+    }
+  },
+  "statusLabels": {
+    "pending": "Pending",
+    "progress": "In progress",
+    "completed": "Completed"
+  },
+  "priorityLabels": {
+    "none": "None",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "pdfTemplate": "general",
+  "pdfHighlights": [],
+  "todoFields": [],
+  "projectFields": [],
+  "pages": [],
+  "seedTemplates": []
+}

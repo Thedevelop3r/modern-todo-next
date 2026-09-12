@@ -4,8 +4,9 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import { Button, PageTransition, useToast } from "@/components/ui";
-import { TodoForm, emptyDraft, validateDraft, type TodoDraft } from "@/components/todo/TodoForm";
+import { TodoForm, draftToInput, emptyDraft, validateDraft, type TodoDraft } from "@/components/todo/TodoForm";
 import { useCreateTodo } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
 import { fromDateInput } from "@/lib/date";
 
 export default function CreateTodoPage() {
@@ -20,6 +21,8 @@ export default function CreateTodoPage() {
     return { ...emptyDraft(), dueDate: due ? fromDateInput(due) : null };
   });
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  // The project chosen in the form can override the account's variant.
+  const { variant, t } = useVariant(draft.projectId);
 
   const change = (patch: Partial<TodoDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -31,12 +34,13 @@ export default function CreateTodoPage() {
       return;
     }
 
-    createTodo.mutate(draft, {
+    createTodo.mutate(draftToInput(draft, variant.id), {
       onSuccess: (todo) => {
-        toast.success("Todo created", { description: todo.title });
+        toast.success(`${t("todo")} created`, { description: todo.title });
         router.push("/dashboard");
       },
-      onError: (error) => toast.error("Could not create todo", { description: (error as Error).message }),
+      onError: (error) =>
+        toast.error(`Could not create ${t("todo").toLowerCase()}`, { description: (error as Error).message }),
     });
   };
 

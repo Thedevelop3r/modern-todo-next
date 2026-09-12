@@ -16,16 +16,19 @@ import {
   Modal,
   PageTransition,
   Progress,
+  RichTextEditor,
   Skeleton,
   Textarea,
   TodoCardSkeleton,
   useToast,
 } from "@/components/ui";
 import { TodoCard, type TodoCardActions } from "@/components/todo/TodoCard";
-import { ColorSwatches } from "@/components/todo/ProjectPicker";
+import { ColorSwatches, VariantSelect } from "@/components/todo/ProjectPicker";
+import { PdfPanel } from "@/components/todo/PdfPanel";
 import { useDeleteProject, useProjects, useUpdateProject } from "@/hooks/useProjects";
 import { useDeleteTodo, useDuplicateTodo, useStats, useTodos, useUpdateTodo } from "@/hooks/useTodos";
 import { PROJECT_COLORS, cn, formatDuration } from "@/lib/utils";
+import { displayHtml, htmlToText } from "@/lib/richtext";
 
 const NEXT_STATUS: Record<TodoStatus, TodoStatus> = {
   pending: "progress",
@@ -53,14 +56,25 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
 
   const [editOpen, setEditOpen] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
-  const [draft, setDraft] = React.useState({ name: "", description: "", color: "indigo" as ProjectColor });
+  const [draft, setDraft] = React.useState({
+    name: "",
+    description: "",
+    descriptionHtml: "",
+    color: "indigo" as ProjectColor,
+    organizationName: "",
+    applicationType: "",
+  });
 
   React.useEffect(() => {
     if (project) {
       setDraft({
         name: project.name,
         description: project.description || "",
+        // A project saved before rich text existed has plaintext only.
+        descriptionHtml: displayHtml(project.descriptionHtml, project.description),
         color: project.color,
+        organizationName: project.organizationName || "",
+        applicationType: project.applicationType || "",
       });
     }
   }, [project]);
@@ -194,6 +208,8 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
         </CardContent>
       </Card>
 
+      <PdfPanel kind="project" id={projectId} title="Project documents" />
+
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -236,7 +252,8 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
               disabled={!draft.name.trim()}
               onClick={() =>
                 updateProject.mutate(
-                  { id: projectId, input: draft },
+                  // "" is inherit, which is null on the wire.
+                  { id: projectId, input: { ...draft, applicationType: draft.applicationType || null } },
                   {
                     onSuccess: () => {
                       toast.success("Project updated");
@@ -262,16 +279,39 @@ export default function ProjectPage({ params }: { params: { projectId: string } 
             />
           </Field>
           <Field label="Description" htmlFor="project-edit-description">
-            <Textarea
+            <RichTextEditor
               id="project-edit-description"
-              rows={2}
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-              maxLength={500}
+              rows={3}
+              value={draft.descriptionHtml}
+              onChange={(html) => setDraft({ ...draft, descriptionHtml: html, description: htmlToText(html) })}
             />
           </Field>
           <Field label="Colour">
             <ColorSwatches value={draft.color} onChange={(color) => setDraft({ ...draft, color })} />
+          </Field>
+          <Field
+            label="Application type"
+            htmlFor="project-edit-application-type"
+            hint="Overrides your account's type for this project only."
+          >
+            <VariantSelect
+              id="project-edit-application-type"
+              value={draft.applicationType}
+              onChange={(applicationType) => setDraft({ ...draft, applicationType })}
+            />
+          </Field>
+          <Field
+            label="Organisation"
+            htmlFor="project-edit-organization"
+            hint="Printed on the header of every PDF generated from this project and its todos."
+          >
+            <Input
+              id="project-edit-organization"
+              value={draft.organizationName}
+              onChange={(e) => setDraft({ ...draft, organizationName: e.target.value })}
+              maxLength={120}
+              placeholder="Your organisation"
+            />
           </Field>
         </div>
       </Modal>

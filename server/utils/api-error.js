@@ -25,8 +25,14 @@ class ApiError extends Error {
   static conflict(message = "Already exists") {
     return new ApiError(409, message);
   }
+  static payloadTooLarge(message = "That file is too large") {
+    return new ApiError(413, message);
+  }
   static tooMany(message = "Too many requests") {
     return new ApiError(429, message);
+  }
+  static unavailable(message = "Service unavailable") {
+    return new ApiError(503, message);
   }
 }
 

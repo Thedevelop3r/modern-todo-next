@@ -1,6 +1,6 @@
 {
   "name": "modern-todo",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Modern Todo \u2014 Next.js frontend and Express API served together from one custom server",
   "author": "Bilal Amjad",
@@ -19,6 +19,7 @@
     "test:web": "node --test \"src/__tests__/**/*.test.ts\"",
     "icons": "node scripts/generate-icons.mjs",
     "themes": "node scripts/generate-themes.mjs",
+    "variants": "node scripts/generate-variants.mjs",
     "fonts": "node scripts/generate-font-list.mjs"
   },
   "engines": {
@@ -38,7 +39,14 @@
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-tooltip": "^1.2.16",
     "@tanstack/react-query": "^5.102.8",
+    "@tiptap/extension-highlight": "^3.31.3",
+    "@tiptap/extension-text-align": "^3.31.3",
+    "@tiptap/extension-text-style": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "bcrypt": "^5.1.1",
+    "busboy": "^1.6.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -57,6 +65,8 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.10.1",
+    "sanitize-html": "^2.17.7",
+    "sharp": "^0.34.5",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.5.4",
     "zustand": "^4.4.7"
@@ -76,6 +86,7 @@
     "typescript": "^5"
   },
   "allowScripts": {
-    "bcrypt@5.1.1": true
+    "bcrypt@5.1.1": true,
+    "sharp@0.34.5": true
   }
 }

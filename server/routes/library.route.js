@@ -57,7 +57,7 @@ router.post(
   "/template",
   validate(templateSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    res.status(201).json(await TemplateController.create(req.body, req.user._id));
+    res.status(201).json(await TemplateController.create(req.body, req.user._id, req.user));
   })
 );
 
@@ -83,7 +83,7 @@ router.put(
   "/template/:id",
   validate(templateUpdateSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    res.status(200).json(await TemplateController.update(req.params.id, req.body, req.user._id));
+    res.status(200).json(await TemplateController.update(req.params.id, req.body, req.user._id, req.user));
   })
 );
 

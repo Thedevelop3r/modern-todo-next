@@ -1,5 +1,7 @@
 const { SavedView, Template, Todo } = require("../models");
 const { ApiError } = require("../utils/api-error");
+const { applyRichText } = require("../utils/rich-fields");
+const { flattenVariantData, nestVariantData, DEFAULT_VARIANT } = require("../config/variants");
 
 /** Saved filter presets. */
 class SavedViewController {
@@ -34,8 +36,14 @@ class TemplateController {
     return Template.find({ ownerId: userId }).sort({ useCount: -1, createdAt: -1 }).lean();
   }
 
-  async create(body, userId) {
-    return Template.create({ ...body, ownerId: userId });
+  async create(body, userId, user) {
+    const variantId = user?.preferences?.applicationType || DEFAULT_VARIANT;
+    const variantData = nestVariantData(body.variantData, { variantId, scope: "todo" });
+    delete body.variantData;
+
+    const payload = applyRichText({ ...body, ownerId: userId });
+    if (variantData) payload.variantData = variantData;
+    return Template.create(payload);
   }
 
   /** Snapshots an existing todo into a template. */
@@ -46,19 +54,33 @@ class TemplateController {
     return Template.create({
       ownerId: userId,
       name: name || todo.title,
+      // The formatting travels with the snapshot, both halves together.
       title: todo.title,
+      titleHtml: todo.titleHtml || "",
       description: todo.description,
+      descriptionHtml: todo.descriptionHtml || "",
       priority: todo.priority,
       tags: todo.tags,
       subtasks: (todo.subtasks || []).map((s) => ({ title: s.title, done: false })),
       estimate: todo.estimate,
       projectId: todo.projectId,
       recurrence: todo.recurrence,
+      // The variant extras travel with the snapshot; a template of a School
+      // todo is worth nothing without its course and term.
+      variantData: todo.variantData || {},
     });
   }
 
-  async update(id, body, userId) {
-    const template = await Template.findOneAndUpdate({ _id: id, ownerId: userId }, body, {
+  async update(id, body, userId, user) {
+    applyRichText(body);
+
+    // Dot paths, never a nested object - the same rule the todo write path
+    // follows, and for the same two reasons.
+    const variantId = user?.preferences?.applicationType || DEFAULT_VARIANT;
+    const variantUpdate = flattenVariantData(body.variantData, { variantId, scope: "todo" });
+    delete body.variantData;
+
+    const template = await Template.findOneAndUpdate({ _id: id, ownerId: userId }, { ...body, ...variantUpdate }, {
       new: true,
       runValidators: true,
     });
@@ -89,7 +111,9 @@ class TemplateController {
     const todo = await Todo.create({
       ownerId: userId,
       title: template.title,
+      titleHtml: template.titleHtml || "",
       description: template.description,
+      descriptionHtml: template.descriptionHtml || "",
       priority: template.priority,
       tags: [...template.tags],
       subtasks: template.subtasks.map((s) => ({ title: s.title, done: false })),
@@ -98,6 +122,9 @@ class TemplateController {
       recurrence: template.recurrence,
       dueDate,
       order: (first?.order ?? 0) - 1,
+      // A plain object on insert, which is the one safe place for it - see
+      // server/config/variants.js.
+      variantData: template.variantData ? JSON.parse(JSON.stringify(template.variantData)) : {},
     });
 
     template.useCount += 1;

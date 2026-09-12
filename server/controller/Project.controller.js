@@ -1,5 +1,8 @@
 const { Project, Todo } = require("../models");
 const { ApiError } = require("../utils/api-error");
+const { applyRichText } = require("../utils/rich-fields");
+const { flattenVariantData, nestVariantData, DEFAULT_VARIANT } = require("../config/variants");
+const { FileController } = require("./File.controller");
 
 class ProjectController {
   /** Projects with live todo counts, so the sidebar can show them. */
@@ -43,13 +46,39 @@ class ProjectController {
     return project;
   }
 
-  async create(body, userId) {
-    const last = await Project.findOne({ ownerId: userId }).sort({ order: -1 }).select("order").lean();
-    return Project.create({ ...body, ownerId: userId, order: (last?.order ?? -1) + 1 });
+  /** A project's own override wins over the account's preference. */
+  variantFor(body, project, user) {
+    return (
+      (body?.applicationType === undefined ? project?.applicationType : body.applicationType) ||
+      user?.preferences?.applicationType ||
+      DEFAULT_VARIANT
+    );
   }
 
-  async update(id, body, userId) {
-    const project = await Project.findOneAndUpdate({ _id: id, ownerId: userId }, body, {
+  async create(body, userId, user) {
+    const variantId = this.variantFor(body, null, user);
+    const variantData = nestVariantData(body.variantData, { variantId, scope: "project" });
+    delete body.variantData;
+
+    const last = await Project.findOne({ ownerId: userId }).sort({ order: -1 }).select("order").lean();
+    // A project name is plain text; only its description is formatted.
+    const payload = applyRichText({ ...body, ownerId: userId, order: (last?.order ?? -1) + 1 }, ["description"]);
+    if (variantData) payload.variantData = variantData;
+    return Project.create(payload);
+  }
+
+  async update(id, body, userId, user) {
+    applyRichText(body, ["description"]);
+
+    const existing = await Project.findOne({ _id: id, ownerId: userId }).select("applicationType").lean();
+    if (!existing) throw ApiError.notFound("Project not found");
+
+    // Dot paths so the other variants' data survives; see config/variants.js.
+    const variantId = this.variantFor(body, existing, user);
+    const variantUpdate = flattenVariantData(body.variantData, { variantId, scope: "project" });
+    delete body.variantData;
+
+    const project = await Project.findOneAndUpdate({ _id: id, ownerId: userId }, { ...body, ...variantUpdate }, {
       new: true,
       runValidators: true,
     });
@@ -66,7 +95,10 @@ class ProjectController {
     if (!project) throw ApiError.notFound("Project not found");
 
     const result = await Todo.updateMany({ ownerId: userId, projectId: id }, { $set: { projectId: null } });
-    return { project, unassigned: result.modifiedCount || 0 };
+    // The todos live on, so only files attached to the project itself go.
+    const files = await FileController.destroyScope({ kind: "project", refId: id, userId });
+
+    return { project, unassigned: result.modifiedCount || 0, filesDeleted: files.deleted };
   }
 
   async reorder(ids, userId) {

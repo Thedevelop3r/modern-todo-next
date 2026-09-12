@@ -7,6 +7,8 @@ const { ActivityController, CommentController } = require("./Activity.controller
 const { AccountController } = require("./Account.controller");
 const { SecurityController } = require("./Security.controller");
 const { FontController } = require("./Font.controller");
+const { StorageController } = require("./Storage.controller");
+const { PdfController } = require("./Pdf.controller");
 const {
   SavedViewController,
   TemplateController,
@@ -27,4 +29,6 @@ module.exports = {
   AccountController,
   SecurityController,
   FontController,
+  StorageController,
+  PdfController,
 };

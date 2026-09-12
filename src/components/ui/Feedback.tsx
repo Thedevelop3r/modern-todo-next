@@ -67,31 +67,55 @@ export function Progress({
   className,
   tone = "primary",
   showLabel,
+  indeterminate,
+  label,
 }: {
   value: number;
   className?: string;
   tone?: "primary" | "success" | "warning";
   showLabel?: boolean;
+  /**
+   * For work whose tool reports no progress at all - sharp and qpdf both do
+   * this. A sliding band is honest about not knowing; a moving percentage
+   * would not be.
+   */
+  indeterminate?: boolean;
+  /** Announced alongside the number, e.g. the phase an upload is in. */
+  label?: string;
 }) {
   const clamped = Math.max(0, Math.min(100, value));
   const toneClass = { primary: "bg-primary", success: "bg-success", warning: "bg-warning" }[tone];
+
   return (
     <div className="flex items-center gap-2">
       <div
         className={cn("h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken", className)}
         role="progressbar"
-        aria-valuenow={clamped}
+        aria-valuenow={indeterminate ? undefined : clamped}
         aria-valuemin={0}
         aria-valuemax={100}
+        aria-valuetext={label ? (indeterminate ? label : `${label}, ${clamped}%`) : undefined}
       >
-        <motion.div
-          className={cn("h-full rounded-full", toneClass)}
-          initial={{ width: 0 }}
-          animate={{ width: `${clamped}%` }}
-          transition={{ type: "spring", stiffness: 120, damping: 20 }}
-        />
+        {indeterminate ? (
+          <motion.div
+            className={cn("h-full w-1/3 rounded-full", toneClass)}
+            animate={{ x: ["-100%", "300%"] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+          />
+        ) : (
+          <motion.div
+            className={cn("h-full rounded-full", toneClass)}
+            initial={{ width: 0 }}
+            animate={{ width: `${clamped}%` }}
+            transition={{ type: "spring", stiffness: 120, damping: 20 }}
+          />
+        )}
       </div>
-      {showLabel && <span className="text-xs tabular-nums text-fg-muted">{clamped}%</span>}
+      {showLabel && (
+        <span className="shrink-0 text-xs tabular-nums text-fg-muted">
+          {indeterminate ? label || "Working" : `${clamped}%`}
+        </span>
+      )}
     </div>
   );
 }

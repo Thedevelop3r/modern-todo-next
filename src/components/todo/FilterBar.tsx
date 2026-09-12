@@ -15,7 +15,8 @@ import {
   MenuTrigger,
   Tag,
 } from "@/components/ui";
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, cn } from "@/lib/utils";
+import { PRIORITIES, STATUSES, cn } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 import { useDebounced } from "@/hooks/useFilters";
 import { useTags } from "@/hooks/useTodos";
 
@@ -49,6 +50,7 @@ export function FilterBar({
   right?: React.ReactNode;
 }) {
   const { data: tags } = useTags();
+  const { statusLabel, priorityLabel } = useVariant();
 
   // Local state keeps typing responsive; the debounced value drives the query.
   const [search, setSearch] = React.useState(filter.q || "");
@@ -120,7 +122,7 @@ export function FilterBar({
                 checked={filter.status?.includes(status) || false}
                 onCheckedChange={() => setFilter({ status: toggleIn(filter.status, status) as TodoStatus[] })}
               >
-                {STATUS_LABEL[status]}
+                {statusLabel(status)}
               </MenuCheckboxItem>
             ))}
 
@@ -132,7 +134,7 @@ export function FilterBar({
                 checked={filter.priority?.includes(priority) || false}
                 onCheckedChange={() => setFilter({ priority: toggleIn(filter.priority, priority) as TodoPriority[] })}
               >
-                {PRIORITY_LABEL[priority]}
+                {priorityLabel(priority)}
               </MenuCheckboxItem>
             ))}
 

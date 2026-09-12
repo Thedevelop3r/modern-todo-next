@@ -60,9 +60,14 @@ export const subtaskSchema = z.object({
   done: z.boolean().default(false),
 });
 
+/** Mirrors server/validation/schemas.js - both sides must reject the same input. */
 export const todoSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100, "Title must be at most 100 characters"),
-  description: z.string().trim().max(1500, "Description must be at most 1500 characters").optional().or(z.literal("")),
+  titleHtml: z.string().max(2000).optional().or(z.literal("")),
+  // 40000 rather than 1500: the plaintext derived from a formatted document
+  // routinely exceeds the old limit.
+  description: z.string().trim().max(40000, "Description is too long").optional().or(z.literal("")),
+  descriptionHtml: z.string().max(40000, "Description is too long").optional().or(z.literal("")),
   status: z.enum(STATUS_VALUES).default("pending"),
   priority: z.enum(PRIORITY_VALUES).default("none"),
   tags: z.array(z.string().trim().min(1).max(24)).max(10, "At most 10 tags").default([]),

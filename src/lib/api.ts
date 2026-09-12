@@ -25,6 +25,7 @@ export const API_ENDPOINT = {
   template: `${API_BASE}/template`,
   account: `${API_BASE}/account`,
   fonts: `${API_BASE}/fonts`,
+  files: `${API_BASE}/files`,
 };
 
 /** Error carrying the API's status code so callers can branch on it. */
@@ -154,6 +155,71 @@ async function download(path: string, fallbackName: string) {
   return { name, size: blob.size };
 }
 
+/**
+ * Uploads one file, reporting how much of it has reached the server.
+ *
+ * This is the one place that does not use `fetch`: fetch has no upload
+ * progress event, and a progress bar that jumps from 0 to 100 on a 600 MB video
+ * would be worse than none at all.
+ */
+export function upload(
+  path: string,
+  file: File,
+  fields: Record<string, string | undefined> = {},
+  options: {
+    onProgress?: (loaded: number, total: number) => void;
+    signal?: AbortSignal;
+    jobId?: string;
+  } = {}
+) {
+  return new Promise<{ jobId: string; file: StoredFile }>((resolve, reject) => {
+    const form = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") form.append(key, value);
+    });
+    // The file part goes last, so the server has every field before the bytes.
+    form.append("file", file, file.name);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", path);
+    xhr.withCredentials = true;
+    // Naming the job up front is what lets the progress stream be matched to
+    // this row before the response comes back.
+    if (options.jobId) xhr.setRequestHeader("X-Job-Id", options.jobId);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) options.onProgress?.(event.loaded, event.total);
+    };
+
+    xhr.onload = () => {
+      let payload: any = null;
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        payload = { message: xhr.responseText || xhr.statusText };
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload);
+        return;
+      }
+      reject(
+        new ApiError(payload?.message || "Upload failed", xhr.status, {
+          details: payload?.details,
+          requestId: payload?.requestId,
+        })
+      );
+    };
+
+    xhr.onerror = () => reject(new ApiError("The upload could not reach the server", 0));
+    xhr.onabort = () => reject(new ApiError("Upload cancelled", 0));
+
+    options.signal?.addEventListener("abort", () => xhr.abort(), { once: true });
+
+    xhr.send(form);
+  });
+}
+
 export const api = {
   // ---- auth / account ----
   login: (input: { email: string; password: string; code?: string }) =>
@@ -177,6 +243,79 @@ export const api = {
 
   updatePreferences: (input: Partial<Preferences>) =>
     request<User>(API_ENDPOINT.preferences, { method: "PUT", body: body(input) }),
+
+  // ---- object storage ----
+
+  files: (params: { scopeKind?: FileScopeKind; scopeId?: string; kind?: FileKind; page?: number; limit?: number } = {}) =>
+    request<Paginated<StoredFile>>(withQuery(API_ENDPOINT.files, params)),
+
+  file: (id: string) => request<StoredFile>(`${API_ENDPOINT.files}/${id}`),
+
+  uploadFile: (
+    file: File,
+    fields: { scopeKind?: FileScopeKind; scopeId?: string; compress?: boolean } = {},
+    options: {
+      onProgress?: (loaded: number, total: number) => void;
+      signal?: AbortSignal;
+      jobId?: string;
+    } = {}
+  ) =>
+    upload(
+      API_ENDPOINT.files,
+      file,
+      {
+        scopeKind: fields.scopeKind,
+        scopeId: fields.scopeId,
+        compress: fields.compress ? "true" : undefined,
+      },
+      options
+    ),
+
+  /** The chain of custody for one stored file, newest first. */
+  fileActivity: (id: string) => request<Activity[]>(`${API_ENDPOINT.files}/${id}/activity`),
+
+  deleteFile: (id: string) =>
+    request<{ deleted: boolean; freedBytes: number }>(`${API_ENDPOINT.files}/${id}`, { method: "DELETE" }),
+
+  /** The URL a <video>, <img> or <iframe> can point straight at. */
+  fileUrl: (id: string, forDownload = false) =>
+    `${API_ENDPOINT.files}/${id}/raw${forDownload ? "?download=1" : ""}`,
+
+  downloadFile: (id: string, filename: string) =>
+    download(`${API_ENDPOINT.files}/${id}/raw?download=1`, filename),
+
+  // ---- generated PDFs: versions of a todo or a project ----
+  //
+  // Todos and projects expose the same four endpoints under their own path, so
+  // one set of functions takes the subject kind rather than two sets existing.
+
+  pdfs: (kind: PdfSubjectKind, id: string) =>
+    request<GeneratedPdf[]>(`${API_BASE}/${kind}/${id}/pdfs`),
+
+  /** Starts a render. Answers 202 - watch the events stream for the result. */
+  generatePdf: (kind: PdfSubjectKind, id: string, jobId?: string) =>
+    request<{ jobId: string; version: number }>(`${API_BASE}/${kind}/${id}/pdfs`, {
+      method: "POST",
+      headers: jobId ? { "X-Job-Id": jobId } : undefined,
+    }),
+
+  deletePdf: (kind: PdfSubjectKind, id: string, pdfId: string) =>
+    request<{ deleted: boolean; version: number; freedBytes: number }>(
+      `${API_BASE}/${kind}/${id}/pdfs/${pdfId}`,
+      { method: "DELETE" }
+    ),
+
+  /** What an <iframe> points at; ?download=1 turns it into a save dialog. */
+  pdfUrl: (kind: PdfSubjectKind, id: string, pdfId: string, forDownload = false) =>
+    `${API_BASE}/${kind}/${id}/pdfs/${pdfId}${forDownload ? "?download=1" : ""}`,
+
+  downloadPdf: (kind: PdfSubjectKind, id: string, pdfId: string, filename: string) =>
+    download(`${API_BASE}/${kind}/${id}/pdfs/${pdfId}?download=1`, filename),
+
+  storage: () => request<StorageSummary>(`${API_ENDPOINT.files}/quota`),
+
+  setStorageTier: (input: { tier?: StorageTier; perFileTier?: PerFileTier }) =>
+    request<StorageSummary>(`${API_ENDPOINT.files}/quota/tier`, { method: "PUT", body: body(input) }),
 
   // ---- fonts: the Google Fonts proxy, see server/controller/Font.controller.js ----
 

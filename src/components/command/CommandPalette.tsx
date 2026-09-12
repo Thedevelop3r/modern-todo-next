@@ -19,6 +19,7 @@ import {
 import { useTheme } from "next-themes";
 import { useUiStore } from "@/store/state";
 import { useTodos } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
 import { useDebounced } from "@/hooks/useFilters";
 import { useRecents } from "@/hooks/useProductivity";
 import { STATUS_DOT } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function CommandPalette() {
   const { data } = useTodos({ q: debounced || undefined, limit: 6, page: 1 });
   const todos = debounced ? data?.data ?? [] : [];
   const { recents } = useRecents();
+  const { t } = useVariant();
 
   // Clear the query each time the palette closes.
   React.useEffect(() => {
@@ -52,7 +54,7 @@ export function CommandPalette() {
   );
 
   const pages = [
-    { icon: CheckSquare, label: "Todos", action: () => router.push("/dashboard") },
+    { icon: CheckSquare, label: t("todo", "many"), action: () => router.push("/dashboard") },
     { icon: BarChart3, label: "Analytics", action: () => router.push("/dashboard/analytics") },
     { icon: Archive, label: "Archive", action: () => router.push("/dashboard/archive") },
     { icon: Trash2, label: "Trash", action: () => router.push("/dashboard/trash") },
@@ -107,7 +109,7 @@ export function CommandPalette() {
                 </Command.Empty>
 
                 {todos.length > 0 && (
-                  <Command.Group heading="Todos" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-fg-subtle">
+                  <Command.Group heading={t("todo", "many")} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-fg-subtle">
                     {todos.map((todo) => (
                       <Command.Item
                         key={todo._id}

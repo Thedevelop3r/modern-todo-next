@@ -40,6 +40,10 @@ services:
       NODE_ENV: ${NODE_ENV}
       PORT: ${PORT}
       HOSTNAME: 0.0.0.0
+      # The renderer runs as a child of server.js inside this container and
+      # listens on loopback only, so it needs no port of its own here.
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
+      PDF_SERVICE_SPAWN: ${PDF_SERVICE_SPAWN:-1}
 
     stdin_open: true
     tty: true

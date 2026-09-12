@@ -13,11 +13,16 @@ import {
   MenuSeparator,
   MenuTrigger,
   Modal,
+  NativeSelect,
+  RichTextEditor,
   Textarea,
   useToast,
 } from "@/components/ui";
 import { useCreateProject, useProjects } from "@/hooks/useProjects";
 import { PROJECT_COLORS, PROJECT_COLOR_NAMES, cn } from "@/lib/utils";
+import { htmlToText } from "@/lib/richtext";
+import { useVariant } from "@/hooks/useVariant";
+import { VARIANTS } from "@/lib/variants";
 
 /** Coloured dot + name, used wherever a project is shown inline. */
 export function ProjectBadge({ project, className }: { project?: Project | null; className?: string }) {
@@ -67,6 +72,35 @@ export function ColorSwatches({
 }
 
 /** Dialog for creating a project; reused by the sidebar and the todo form. */
+/**
+ * The project-level variant override.
+ *
+ * "" means inherit, which is not the same as General: an account that later
+ * switches to School takes its inheriting projects with it.
+ */
+export function VariantSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { variant } = useVariant();
+
+  return (
+    <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="">Inherit ({variant.label})</option>
+      {VARIANTS.map((entry) => (
+        <option key={entry.id} value={entry.id}>
+          {entry.label}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
 export function NewProjectModal({
   open,
   onOpenChange,
@@ -80,18 +114,30 @@ export function NewProjectModal({
   const createProject = useCreateProject();
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
+  const [descriptionHtml, setDescriptionHtml] = React.useState("");
   const [color, setColor] = React.useState<ProjectColor>("indigo");
+  const [applicationType, setApplicationType] = React.useState<string>("");
+  const { t } = useVariant();
 
   const reset = () => {
     setName("");
     setDescription("");
+    setDescriptionHtml("");
     setColor("indigo");
+    setApplicationType("");
   };
 
   const submit = () => {
     if (!name.trim()) return;
     createProject.mutate(
-      { name: name.trim(), description: description.trim(), color },
+      {
+        name: name.trim(),
+        description: description.trim(),
+        descriptionHtml,
+        color,
+        // "" is the inherit case, and inherit is null on the wire.
+        applicationType: applicationType || null,
+      },
       {
         onSuccess: (project) => {
           toast.success("Project created", { description: project.name });
@@ -108,8 +154,8 @@ export function NewProjectModal({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
-      title="New project"
-      description="Group related todos together."
+      title={`New ${t("project").toLowerCase()}`}
+      description={`Group related ${t("todo", "many").toLowerCase()} together.`}
       size="sm"
       footer={
         <>
@@ -117,7 +163,7 @@ export function NewProjectModal({
             Cancel
           </Button>
           <Button onClick={submit} loading={createProject.isPending} disabled={!name.trim()}>
-            Create project
+            Create {t("project").toLowerCase()}
           </Button>
         </>
       }
@@ -136,18 +182,28 @@ export function NewProjectModal({
         </Field>
 
         <Field label="Description" htmlFor="project-description">
-          <Textarea
+          <RichTextEditor
             id="project-description"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            value={descriptionHtml}
+            onChange={(html) => {
+              setDescriptionHtml(html);
+              setDescription(htmlToText(html));
+            }}
             placeholder="Optional"
-            maxLength={500}
           />
         </Field>
 
         <Field label="Colour">
           <ColorSwatches value={color} onChange={setColor} />
+        </Field>
+
+        <Field
+          label="Application type"
+          htmlFor="project-application-type"
+          hint="Overrides your account's type for this project only."
+        >
+          <VariantSelect id="project-application-type" value={applicationType} onChange={setApplicationType} />
         </Field>
       </div>
     </Modal>

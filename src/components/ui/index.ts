@@ -24,3 +24,4 @@ export { Checkbox, Switch, SegmentedControl } from "./Toggle";
 export { ToastProvider, useToast } from "./Toast";
 export { ThemeToggle } from "./ThemeToggle";
 export { PageTransition, StaggerList, StaggerItem, fadeUp } from "./Motion";
+export { RichTextEditor, RichTextView, type RichTextProfile } from "./RichText";

@@ -23,7 +23,7 @@ import { ChartLegend, ChartTooltip, useChartColors } from "@/components/todo/cha
 import { CompletionHeatmap } from "@/components/todo/Heatmap";
 import { useStats } from "@/hooks/useTodos";
 import { useTheme } from "next-themes";
-import { PRIORITY_LABEL, STATUS_LABEL } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 
 /** Counts up to the final value - a small bit of life on an otherwise static tile. */
 function CountUp({ value, suffix = "" }: { value: number; suffix?: string }) {
@@ -128,6 +128,8 @@ function ChartCard({
 
 export default function AnalyticsPage() {
   const colors = useChartColors();
+  // Only the words vary - the chart palettes encode meaning across variants.
+  const { statusLabel, priorityLabel } = useVariant();
   const { resolvedTheme } = useTheme();
   // A year of history so the heatmap has something to show.
   const { data: stats, isLoading } = useStats({ days: 365 });
@@ -169,13 +171,13 @@ export default function AnalyticsPage() {
   }));
 
   const statusItems = byStatus.map((entry) => ({
-    label: STATUS_LABEL[entry.name],
+    label: statusLabel(entry.name),
     value: entry.value,
     color: colors.status[entry.name],
   }));
 
   const priorityData = byPriority.map((entry, index) => ({
-    name: PRIORITY_LABEL[entry.name],
+    name: priorityLabel(entry.name),
     value: entry.value,
     fill: colors.priority[index],
   }));

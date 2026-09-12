@@ -22,7 +22,12 @@ type Preferences = {
   themeId: string;
   /** A Google Fonts family, served through /api/fonts. "" = the built-in Inter. */
   fontFamily: string;
+  /** Which application variant this account runs as; see shared/variants/. */
+  applicationType: string;
 };
+
+/** A record's extra fields, keyed by variant id. Only the active one is shown. */
+type VariantData = Record<string, Record<string, unknown>>;
 
 type User = {
   _id?: string;
@@ -86,6 +91,7 @@ type Project = {
   _id?: string;
   name: string;
   description?: string;
+  descriptionHtml?: string;
   color: ProjectColor;
   archived?: boolean;
   order?: number;
@@ -93,6 +99,11 @@ type Project = {
   completedCount?: number;
   estimateTotal?: number;
   timeSpentTotal?: number;
+  /** Printed on every PDF this project's records generate. */
+  organizationName?: string;
+  /** Overrides the account's variant for this project. null means inherit. */
+  applicationType?: string | null;
+  variantData?: VariantData;
   createdAt?: string;
 };
 
@@ -128,7 +139,9 @@ type TodoTemplate = {
   _id?: string;
   name: string;
   title: string;
+  titleHtml?: string;
   description?: string;
+  descriptionHtml?: string;
   priority?: TodoPriority;
   tags?: string[];
   subtasks?: Subtask[];
@@ -137,12 +150,18 @@ type TodoTemplate = {
   recurrence?: TodoRecurrence;
   dueInDays?: number | null;
   useCount?: number;
+  variantData?: VariantData;
 };
 
 type Todo = {
   _id?: string;
   title?: string;
+  /** Inline marks only. Sanitized server-side; safe to render as HTML. */
+  titleHtml?: string;
+  /** The plaintext mirror of `descriptionHtml`, derived on the server. */
   description?: string;
+  /** Sanitized rich text. Safe to render as HTML. */
+  descriptionHtml?: string;
   status?: TodoStatus;
   priority?: TodoPriority;
   tags?: string[];
@@ -159,6 +178,8 @@ type Todo = {
   timeSpent?: number;
   timerStartedAt?: string | null;
   blockedBy?: string[];
+  /** Variant extras. Switching variants hides these; it never deletes them. */
+  variantData?: VariantData;
   ownerId?: string;
   todoId?: string;
   createdAt?: string;
@@ -221,3 +242,70 @@ type Stats = {
 };
 
 type TagCount = { name: string; count: number };
+
+// ---- object storage ----
+
+type FileKind = "image" | "video" | "audio" | "document" | "pdf";
+type FileScopeKind = "todo" | "project" | "template" | "user" | "variant";
+type StorageTier = "base" | "10gb" | "25gb" | "50gb" | "100gb";
+type PerFileTier = "base" | "plus";
+
+/** One file in the object store. The bytes live in GridFS; this is the record. */
+type StoredFile = {
+  _id: string;
+  scope: { kind: FileScopeKind; refId?: string | null };
+  kind: FileKind;
+  source?: "upload" | "generated";
+  filename: string;
+  mime: string;
+  originalSize: number;
+  storedSize: number;
+  checksum?: string;
+  compression?: { requested: boolean; applied: boolean; codec: string; ratio: number };
+  /** Bit flags; see FILE_FLAGS in server/config/storage.js. */
+  flags?: number;
+  state: "pending" | "uploading" | "compressing" | "storing" | "ready" | "failed";
+  error?: string | null;
+  width?: number | null;
+  height?: number | null;
+  durationSeconds?: number | null;
+  pages?: number | null;
+  createdAt?: string;
+};
+
+type StorageSummary = {
+  usedBytes: number;
+  quotaBytes: number;
+  tier: StorageTier;
+  perFileTier: PerFileTier;
+  fileCount: number;
+  caps: Record<FileKind, number>;
+  tiers: Array<{ id: StorageTier; label: string; quotaBytes: number }>;
+};
+
+/** Which record a generated PDF belongs to. */
+type PdfSubjectKind = "todo" | "project";
+
+/** One rendered version. The bytes are a StoredFile; this is the version record. */
+type GeneratedPdf = {
+  _id: string;
+  subject: { kind: PdfSubjectKind; refId: string };
+  fileId: string;
+  version: number;
+  variant: string;
+  template: string;
+  filename: string;
+  sizeBytes: number;
+  snapshotHash: string;
+  /** The title as it read when this version was made. */
+  snapshotTitle: string;
+  generatedBy: { userId?: string | null; name: string };
+  generatedAt: string;
+  renderMs: number;
+  /**
+   * Whether rendering the record *now* would produce the same document. Served
+   * by the API rather than guessed at from timestamps.
+   */
+  current: boolean;
+  createdAt?: string;
+};

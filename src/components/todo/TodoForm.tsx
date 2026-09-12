@@ -11,18 +11,26 @@ import {
   Input,
   NativeSelect,
   Progress,
+  RichTextEditor,
   Tag,
   Textarea,
 } from "@/components/ui";
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, subtaskProgress } from "@/lib/utils";
+import { PRIORITIES, STATUSES, subtaskProgress } from "@/lib/utils";
 import { ProjectPicker } from "./ProjectPicker";
 import { fromDateInput, toDateInput } from "@/lib/date";
 import { todoSchema } from "@/lib/validation";
+import { displayHtml, htmlToText } from "@/lib/richtext";
 import { useTags } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
+import { VariantFields, type VariantValues } from "@/components/variant/VariantFields";
 
 export type TodoDraft = {
   title: string;
+  /** Inline marks only; "" means the plain title is the whole story. */
+  titleHtml: string;
   description: string;
+  /** What the editor produces. The server derives `description` from it. */
+  descriptionHtml: string;
   status: TodoStatus;
   priority: TodoPriority;
   tags: string[];
@@ -33,11 +41,18 @@ export type TodoDraft = {
   projectId: string | null;
   recurrence: TodoRecurrence;
   pinned: boolean;
+  /**
+   * The active variant's extra fields, flat. The form never sees the other
+   * variants' data and never sends it, which is how a save cannot drop it.
+   */
+  variantValues: VariantValues;
 };
 
 export const emptyDraft = (): TodoDraft => ({
   title: "",
+  titleHtml: "",
   description: "",
+  descriptionHtml: "",
   status: "pending",
   priority: "none",
   tags: [],
@@ -48,11 +63,16 @@ export const emptyDraft = (): TodoDraft => ({
   projectId: null,
   recurrence: "none",
   pinned: false,
+  variantValues: {},
 });
 
 export const draftFromTodo = (todo: Todo): TodoDraft => ({
   title: todo.title || "",
+  titleHtml: todo.titleHtml || "",
+  // A todo written before rich text existed has plaintext only, so the editor
+  // is seeded from that rather than opening empty.
   description: todo.description || "",
+  descriptionHtml: displayHtml(todo.descriptionHtml, todo.description),
   status: todo.status || "pending",
   priority: todo.priority || "none",
   tags: todo.tags || [],
@@ -63,6 +83,13 @@ export const draftFromTodo = (todo: Todo): TodoDraft => ({
   projectId: todo.projectId || null,
   recurrence: todo.recurrence || "none",
   pinned: todo.pinned || false,
+  variantValues: {},
+});
+
+/** The same draft, with the active variant's stored values filled in. */
+export const draftFromTodoFor = (todo: Todo, variantId: string): TodoDraft => ({
+  ...draftFromTodo(todo),
+  variantValues: (todo.variantData?.[variantId] as VariantValues) || {},
 });
 
 /** Free-text tag entry with suggestions from the user's existing tags. */
@@ -197,35 +224,42 @@ export function TodoForm({
   onChange: (patch: Partial<TodoDraft>) => void;
   errors: Record<string, string>;
 }) {
+  // The project in the draft can override the account's variant, so the labels
+  // and the extra fields follow whatever the todo is being filed under.
+  const { statusLabel, priorityLabel, todoFields, variant } = useVariant(draft.projectId);
+
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
       <div className="space-y-5">
         <Card>
           <CardContent className="space-y-4">
             <Field label="Title" required error={errors.title} htmlFor="todo-title">
-              <Input
+              <RichTextEditor
                 id="todo-title"
-                value={draft.title}
-                onChange={(e) => onChange({ title: e.target.value })}
+                profile="inline"
+                value={draft.titleHtml}
+                onChange={(html) =>
+                  // The plaintext half is kept in step locally so validation and
+                  // the character count work before the round trip; the server
+                  // derives it again from the markup on write.
+                  onChange({ titleHtml: html, title: htmlToText(html).slice(0, 100) })
+                }
                 placeholder="What needs doing?"
                 invalid={Boolean(errors.title)}
                 maxLength={100}
-                autoFocus
               />
               <p className="mt-1.5 text-right text-xs text-fg-subtle">{draft.title.length}/100</p>
             </Field>
 
             <Field label="Description" error={errors.description} htmlFor="todo-description">
-              <Textarea
+              <RichTextEditor
                 id="todo-description"
                 rows={8}
-                value={draft.description}
-                onChange={(e) => onChange({ description: e.target.value })}
+                value={draft.descriptionHtml}
+                onChange={(html) => onChange({ descriptionHtml: html, description: htmlToText(html) })}
                 placeholder="Add any detail worth remembering…"
                 invalid={Boolean(errors.description)}
-                maxLength={1500}
               />
-              <p className="mt-1.5 text-right text-xs text-fg-subtle">{draft.description.length}/1500</p>
             </Field>
           </CardContent>
         </Card>
@@ -236,6 +270,23 @@ export function TodoForm({
             <SubtaskEditor value={draft.subtasks} onChange={(subtasks) => onChange({ subtasks })} />
           </CardContent>
         </Card>
+
+        {/* Nothing here knows which variant is active - the registry does. */}
+        {todoFields.length > 0 && (
+          <Card>
+            <CardContent>
+              <h3 className="mb-3 text-sm font-semibold text-fg">{variant.label} details</h3>
+              <VariantFields
+                fields={todoFields}
+                values={draft.variantValues}
+                idPrefix="todo-variant"
+                onChange={(key, value) =>
+                  onChange({ variantValues: { ...draft.variantValues, [key]: value } })
+                }
+              />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="space-y-5">
@@ -249,7 +300,7 @@ export function TodoForm({
               >
                 {STATUSES.map((status) => (
                   <option key={status} value={status}>
-                    {STATUS_LABEL[status]}
+                    {statusLabel(status)}
                   </option>
                 ))}
               </NativeSelect>
@@ -263,7 +314,7 @@ export function TodoForm({
               >
                 {PRIORITIES.map((priority) => (
                   <option key={priority} value={priority}>
-                    {PRIORITY_LABEL[priority]}
+                    {priorityLabel(priority)}
                   </option>
                 ))}
               </NativeSelect>
@@ -357,6 +408,21 @@ export function TodoForm({
 }
 
 /** Validates a draft with the shared schema, returning per-field messages. */
+/**
+ * The draft as the API takes it.
+ *
+ * `variantValues` is flat in the form and nested under the active variant on
+ * the wire, because the server writes it as `variantData.<id>.<key>` dot paths
+ * - the only form that is additive and the only one Mongoose persists for a
+ * Mixed path. The form never holds another variant's values, so a save cannot
+ * drop them.
+ */
+export function draftToInput(draft: TodoDraft, variantId: string) {
+  const { variantValues, ...rest } = draft;
+  if (!variantValues || Object.keys(variantValues).length === 0) return rest;
+  return { ...rest, variantData: { [variantId]: variantValues } };
+}
+
 export function validateDraft(draft: TodoDraft) {
   const result = todoSchema.safeParse(draft);
   if (result.success) return { valid: true as const, errors: {} as Record<string, string> };

@@ -7,18 +7,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Archive,
   BarChart3,
+  CalendarRange,
   CheckSquare,
   ChevronLeft,
+  ClipboardList,
+  FileStack,
+  FolderOpen,
+  HardDrive,
   LogOut,
   Plus,
   Settings,
-  Trash2,
-  CalendarRange,
-  ClipboardList,
   Sun,
-  FolderOpen,
-  FileStack,
   Tags,
+  Trash2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,8 @@ import { useUiStore } from "@/store/state";
 import { useLogout, useMe } from "@/hooks/useAuth";
 import { useStats } from "@/hooks/useTodos";
 import { useProjects } from "@/hooks/useProjects";
+import { useVariant } from "@/hooks/useVariant";
+import { variantIcon } from "@/components/variant/VariantIcon";
 import { NewProjectModal } from "@/components/todo/ProjectPicker";
 import { PROJECT_COLORS } from "@/lib/utils";
 import { Avatar, Button, Tooltip } from "@/components/ui";
@@ -39,14 +42,27 @@ type NavItem = {
 
 function useNavItems(): NavItem[] {
   const { data: stats } = useStats();
+  // The nouns come from the variant; the routes, icons and badges never vary.
+  const { t, variant } = useVariant();
+
+  // A variant's own pages sit with the record views rather than at the bottom:
+  // they are how someone using that variant actually reads their work.
+  const variantItems: NavItem[] = (variant.pages || []).map((page) => ({
+    href: `/dashboard/v/${page.id}`,
+    label: page.label,
+    icon: variantIcon(page.icon),
+  }));
+
   return [
     { href: "/dashboard/today", label: "Today", icon: Sun, badge: stats?.summary.dueToday },
-    { href: "/dashboard", label: "Todos", icon: CheckSquare, badge: stats?.summary.total },
+    { href: "/dashboard", label: t("todo", "many"), icon: CheckSquare, badge: stats?.summary.total },
     { href: "/dashboard/upcoming", label: "Upcoming", icon: CalendarRange },
+    ...variantItems,
     { href: "/dashboard/review", label: "Weekly review", icon: ClipboardList },
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/dashboard/templates", label: "Templates", icon: FileStack },
-    { href: "/dashboard/tags", label: "Tags", icon: Tags },
+    { href: "/dashboard/templates", label: t("template", "many"), icon: FileStack },
+    { href: "/dashboard/files", label: "Files", icon: HardDrive },
+    { href: "/dashboard/tags", label: t("tag", "many"), icon: Tags },
     { href: "/dashboard/archive", label: "Archive", icon: Archive, badge: stats?.summary.archived },
     { href: "/dashboard/trash", label: "Trash", icon: Trash2, badge: stats?.summary.trashed },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -106,6 +122,7 @@ function ProjectLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigat
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: projects } = useProjects();
+  const { t } = useVariant();
   const [newOpen, setNewOpen] = React.useState(false);
   const activeId = pathname.startsWith("/dashboard/projects/")
     ? pathname.split("/")[3]
@@ -129,7 +146,7 @@ function ProjectLinks({ collapsed, onNavigate }: { collapsed: boolean; onNavigat
   return (
     <div className="mt-6">
       <div className="mb-1 flex items-center justify-between px-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">Projects</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">{t("project", "many")}</span>
         <button
           type="button"
           onClick={() => setNewOpen(true)}

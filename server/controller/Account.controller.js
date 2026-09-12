@@ -12,6 +12,8 @@ const {
   AuditLog,
 } = require("../models");
 const { ApiError } = require("../utils/api-error");
+const { FileController } = require("./File.controller");
+const { applyRichText } = require("../utils/rich-fields");
 const { toCsv, parseCsv } = require("../utils/csv");
 
 const STATUSES = ["pending", "progress", "completed"];
@@ -299,13 +301,15 @@ class AccountController {
     const payloads = toCreate.map(({ todo }) => {
       const { projectName, ...rest } = todo;
       order -= 1;
-      return {
+      // An imported row is plaintext; the markup half is derived from it here
+      // so an imported todo renders like any other.
+      return applyRichText({
         ...rest,
         ownerId: userId,
         order,
         projectId: projectName ? byName.get(projectName.toLowerCase()) || null : null,
         completedAt: rest.status === "completed" ? new Date() : null,
-      };
+      });
     });
 
     const created = await Todo.insertMany(payloads, { ordered: false });
@@ -353,12 +357,14 @@ class AccountController {
     ];
 
     const created = await Todo.insertMany(
-      todos.map((todo, index) => ({
-        ...todo,
-        ownerId: userId,
-        order: index,
-        completedAt: todo.status === "completed" ? new Date() : null,
-      }))
+      todos.map((todo, index) =>
+        applyRichText({
+          ...todo,
+          ownerId: userId,
+          order: index,
+          completedAt: todo.status === "completed" ? new Date() : null,
+        })
+      )
     );
 
     return { todos: created.length, projects: 2 };
@@ -379,6 +385,9 @@ class AccountController {
       Template.deleteMany({ ownerId: userId }),
     ]);
 
+    // Every byte the account stored, and the GridFS chunks behind them.
+    const files = await FileController.destroyAll(userId);
+
     await AuditLog.deleteMany({ ownerId: userId });
     const user = await User.findByIdAndDelete(userId);
     if (!user) throw ApiError.notFound("User not found");
@@ -386,6 +395,7 @@ class AccountController {
     return {
       message: "Account deleted",
       removed: {
+        files: files.deleted,
         todos: todos.deletedCount,
         trash: trash.deletedCount,
         projects: projects.deletedCount,

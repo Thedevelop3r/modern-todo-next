@@ -126,3 +126,27 @@ export function liveMinutes(todo: Todo) {
   if (Number.isNaN(started)) return banked;
   return banked + Math.max(0, Math.floor((Date.now() - started) / 60000));
 }
+
+/** "1.4 MB" - sizes are for people, so they get three significant figures at most. */
+export function formatBytes(bytes?: number) {
+  const value = bytes || 0;
+  if (value < 1024) return `${value} B`;
+
+  const units = ["KB", "MB", "GB", "TB"];
+  let size = value / 1024;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+  return `${size < 10 ? size.toFixed(1) : Math.round(size)} ${units[unit]}`;
+}
+
+/** Icon-friendly grouping for a stored file. */
+export const FILE_KIND_LABEL: Record<FileKind, string> = {
+  image: "Image",
+  video: "Video",
+  audio: "Audio",
+  document: "Document",
+  pdf: "PDF",
+};

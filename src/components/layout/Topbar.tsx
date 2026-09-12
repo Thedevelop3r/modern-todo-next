@@ -6,31 +6,49 @@ import { Command, Keyboard, Menu, Search } from "lucide-react";
 import { useUiStore } from "@/store/state";
 import { IconButton, ThemeToggle, Tooltip } from "@/components/ui";
 import { NotificationCentre } from "./NotificationCentre";
+import { useVariant } from "@/hooks/useVariant";
+import { findPage } from "@/lib/variants";
 
+/**
+ * Titles that never vary. The ones naming a record come from the variant
+ * registry below instead, because "Todos" is a General word, not a fixed one.
+ */
 const TITLES: Record<string, string> = {
-  "/dashboard": "Todos",
   "/dashboard/analytics": "Analytics",
   "/dashboard/archive": "Archive",
   "/dashboard/trash": "Trash",
   "/dashboard/settings": "Settings",
   "/dashboard/settings/appearance": "Appearance",
+  "/dashboard/settings/application": "Application type",
   "/dashboard/settings/data": "Data & export",
   "/dashboard/settings/security": "Security",
-  "/dashboard/templates": "Templates",
-  "/dashboard/templates/new": "New template",
-  "/dashboard/tags": "Tags",
+  "/dashboard/files": "Files",
   "/dashboard/today": "Today",
   "/dashboard/upcoming": "Upcoming",
   "/dashboard/review": "Weekly review",
-  "/dashboard/create-todo": "New todo",
 };
 
 function useTitle() {
   const pathname = usePathname();
+  const { t, lower, variant } = useVariant();
+
+  const named: Record<string, string> = {
+    "/dashboard": t("todo", "many"),
+    "/dashboard/templates": t("template", "many"),
+    "/dashboard/templates/new": `New ${lower("template")}`,
+    "/dashboard/tags": t("tag", "many"),
+    "/dashboard/create-todo": `New ${lower("todo")}`,
+  };
+
+  // A variant's own pages name themselves, so the topbar never lists them.
+  if (pathname.startsWith("/dashboard/v/")) {
+    return findPage(variant, pathname.split("/")[3])?.label || "Dashboard";
+  }
+  if (named[pathname]) return named[pathname];
   if (TITLES[pathname]) return TITLES[pathname];
-  if (pathname.startsWith("/dashboard/edit-todo")) return "Edit todo";
-  if (pathname.startsWith("/dashboard/todo")) return "Todo";
-  if (pathname.startsWith("/dashboard/projects")) return "Project";
+  if (pathname.startsWith("/dashboard/edit-todo")) return `Edit ${lower("todo")}`;
+  if (pathname.startsWith("/dashboard/todo")) return t("todo");
+  if (pathname.startsWith("/dashboard/projects")) return t("project");
   return "Dashboard";
 }
 

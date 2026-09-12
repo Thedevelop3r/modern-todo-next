@@ -31,7 +31,21 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self';",
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: blob:; " +
+      "font-src 'self' data:; " +
+      "connect-src 'self'; " +
+      // Stored video and audio are streamed from /api/files on this origin.
+      // default-src would already allow it; saying so keeps that true if
+      // default-src is ever tightened.
+      "media-src 'self' blob:; " +
+      // A stored PDF is previewed in an iframe, never an <object>/<embed> -
+      // plugin content gets no foothold at all.
+      "object-src 'none'; " +
+      "frame-src 'self' blob:; " +
+      "worker-src 'self' blob:;",
   },
 ];
 
