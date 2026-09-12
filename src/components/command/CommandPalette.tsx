@@ -77,7 +77,10 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -8 }}
             transition={{ type: "spring", stiffness: 340, damping: 30 }}
-            className="fixed left-1/2 top-[15vh] z-[90] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2"
+            // Horizontally centred by the inset box, not by a translate class:
+            // Motion writes its own inline `transform` here and would override
+            // one. See the note in ui/Modal.tsx.
+            className="fixed inset-x-4 top-[15vh] z-[90] mx-auto max-w-xl"
           >
             <Command
               loop
