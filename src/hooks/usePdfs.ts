@@ -38,9 +38,11 @@ export function useGeneratePdf(kind: PdfSubjectKind, id: string) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const id = crypto.randomUUID();
-      setJobId(id);
-      return api.generatePdf(kind, id, id);
+      // Named for what it is: reusing `id` here shadows the subject's id and
+      // sends the job uuid to the server as the todo/project id.
+      const newJobId = crypto.randomUUID();
+      setJobId(newJobId);
+      return api.generatePdf(kind, id, newJobId);
     },
     onError: () => setJobId(null),
   });
