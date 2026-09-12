@@ -13,7 +13,8 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import { cn, STATUSES, STATUS_LABEL, subtaskProgress } from "@/lib/utils";
+import { cn, STATUSES, subtaskProgress } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 import { DueBadge, PriorityBadge } from "./TodoBits";
 import { Tag } from "@/components/ui";
 
@@ -69,6 +70,7 @@ function DraggableCard({ todo }: { todo: Todo }) {
 
 function Column({ status, todos }: { status: TodoStatus; todos: Todos }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { statusLabel } = useVariant();
 
   return (
     <div
@@ -80,7 +82,7 @@ function Column({ status, todos }: { status: TodoStatus; todos: Todos }) {
     >
       <div className="mb-3 flex items-center gap-2 px-1">
         <span className={cn("h-2 w-2 rounded-full", COLUMN_ACCENT[status])} />
-        <h3 className="text-sm font-semibold text-fg">{STATUS_LABEL[status]}</h3>
+        <h3 className="text-sm font-semibold text-fg">{statusLabel(status)}</h3>
         <span className="ml-auto rounded-full bg-surface px-2 py-0.5 text-xs font-medium tabular-nums text-fg-muted">
           {todos.length}
         </span>

@@ -1,0 +1,81 @@
+{
+  "id": "law-enforcement",
+  "label": "Law Enforcement",
+  "description": "Cases with classifications, units and an evidence trail.",
+  "icon": "shield",
+  "capabilities": ["custody", "banner"],
+  "terms": {
+    "todo": { "one": "Case", "many": "Cases" },
+    "project": { "one": "Operation", "many": "Operations" },
+    "template": { "one": "Template", "many": "Templates" },
+    "tag": { "one": "Flag", "many": "Flags" }
+  },
+  "statusLabels": { "pending": "Open", "progress": "Active", "completed": "Closed" },
+  "priorityLabels": { "none": "Routine", "low": "Low", "medium": "Medium", "high": "High", "urgent": "Critical" },
+  "pdfTemplate": "law-enforcement",
+  "pdfHighlights": ["caseNumber", "classification", "incidentTime"],
+  "pdfBannerField": "confidentiality",
+  "todoFields": [
+    { "key": "caseNumber", "label": "Case number", "type": "string", "max": 40, "placeholder": "2026-004821" },
+    {
+      "key": "classification",
+      "label": "Classification",
+      "type": "enum",
+      "options": [
+        { "value": "theft", "label": "Theft" },
+        { "value": "assault", "label": "Assault" },
+        { "value": "fraud", "label": "Fraud" },
+        { "value": "narcotics", "label": "Narcotics" },
+        { "value": "traffic", "label": "Traffic" },
+        { "value": "public-order", "label": "Public order" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "key": "confidentiality",
+      "label": "Handling",
+      "type": "enum",
+      "hint": "Printed as a banner on every page of this case's PDF.",
+      "options": [
+        { "value": "unrestricted", "label": "Unrestricted" },
+        { "value": "official", "label": "Official" },
+        { "value": "sensitive", "label": "Official — Sensitive" },
+        { "value": "restricted", "label": "Restricted" }
+      ]
+    },
+    { "key": "unit", "label": "Unit", "type": "string", "max": 60, "placeholder": "CID" },
+    { "key": "badge", "label": "Officer", "type": "string", "max": 40, "placeholder": "Badge number" },
+    { "key": "location", "label": "Location", "type": "string", "max": 120 },
+    { "key": "incidentTime", "label": "Incident", "type": "date" }
+  ],
+  "projectFields": [
+    { "key": "operationCode", "label": "Operation code", "type": "string", "max": 40 },
+    { "key": "leadUnit", "label": "Lead unit", "type": "string", "max": 60 },
+    { "key": "commander", "label": "Commander", "type": "string", "max": 60 },
+    { "key": "openedAt", "label": "Opened", "type": "date" }
+  ],
+  "pages": [
+    {
+      "id": "cases",
+      "label": "Cases",
+      "icon": "shield",
+      "kind": "group",
+      "groupBy": "caseNumber",
+      "emptyLabel": "No case number",
+      "description": "Every case, grouped by its case number."
+    },
+    {
+      "id": "evidence",
+      "label": "Evidence",
+      "icon": "clipboard",
+      "kind": "files",
+      "groupBy": "caseNumber",
+      "description": "Every stored exhibit, with the chain of custody behind it."
+    }
+  ],
+  "seedTemplates": [
+    { "name": "Incident report", "title": "Incident: ", "description": "Time, location, parties, account, actions taken." },
+    { "name": "Witness statement", "title": "Statement: ", "description": "Who, when, what they saw, contact details, signature." },
+    { "name": "Evidence log", "title": "Evidence: ", "description": "Item, where seized, by whom, where stored." }
+  ]
+}

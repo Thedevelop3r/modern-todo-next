@@ -11,16 +11,21 @@ import {
   Input,
   NativeSelect,
   PageTransition,
+  RichTextEditor,
   Textarea,
   useToast,
 } from "@/components/ui";
+import { htmlToText } from "@/lib/richtext";
 import { useCreateTemplate } from "@/hooks/useLibrary";
-import { PRIORITIES, PRIORITY_LABEL } from "@/lib/utils";
+import { PRIORITIES } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 
 type TemplateDraft = {
   name: string;
   title: string;
+  titleHtml: string;
   description: string;
+  descriptionHtml: string;
   priority: TodoPriority;
   tags: string;
   dueInDays: string;
@@ -29,7 +34,9 @@ type TemplateDraft = {
 const emptyDraft = (): TemplateDraft => ({
   name: "",
   title: "",
+  titleHtml: "",
   description: "",
+  descriptionHtml: "",
   priority: "none",
   tags: "",
   dueInDays: "",
@@ -41,6 +48,7 @@ const emptyDraft = (): TemplateDraft => ({
  * phone, and a page gives the work its own URL and back button.
  */
 export default function NewTemplatePage() {
+  const { priorityLabel } = useVariant();
   const router = useRouter();
   const toast = useToast();
   const createTemplate = useCreateTemplate();
@@ -65,7 +73,9 @@ export default function NewTemplatePage() {
       {
         name: draft.name.trim(),
         title: draft.title.trim(),
+        titleHtml: draft.titleHtml,
         description: draft.description.trim(),
+        descriptionHtml: draft.descriptionHtml,
         priority: draft.priority,
         tags: draft.tags
           .split(",")
@@ -126,23 +136,23 @@ export default function NewTemplatePage() {
           </Field>
 
           <Field label="Todo title" required error={errors.title} htmlFor="tpl-title">
-            <Input
+            <RichTextEditor
               id="tpl-title"
-              value={draft.title}
-              onChange={(e) => change({ title: e.target.value })}
+              profile="inline"
+              value={draft.titleHtml}
+              onChange={(html) => change({ titleHtml: html, title: htmlToText(html).slice(0, 100) })}
               placeholder="Write the weekly report"
-              maxLength={100}
               invalid={Boolean(errors.title)}
+              maxLength={100}
             />
           </Field>
 
           <Field label="Description" htmlFor="tpl-description">
-            <Textarea
+            <RichTextEditor
               id="tpl-description"
               rows={4}
-              value={draft.description}
-              onChange={(e) => change({ description: e.target.value })}
-              maxLength={1500}
+              value={draft.descriptionHtml}
+              onChange={(html) => change({ descriptionHtml: html, description: htmlToText(html) })}
             />
           </Field>
 
@@ -155,7 +165,7 @@ export default function NewTemplatePage() {
               >
                 {PRIORITIES.map((priority) => (
                   <option key={priority} value={priority}>
-                    {PRIORITY_LABEL[priority]}
+                    {priorityLabel(priority)}
                   </option>
                 ))}
               </NativeSelect>

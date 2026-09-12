@@ -1,6 +1,8 @@
 const { Todo, Trash, Comment, Activity } = require("../models");
 const { ApiError } = require("../utils/api-error");
 const { ActivityController } = require("./Activity.controller");
+const { applyRichText } = require("../utils/rich-fields");
+const { flattenVariantData, nestVariantData, DEFAULT_VARIANT } = require("../config/variants");
 const { Mongoose } = require("../db.config");
 
 /**
@@ -133,8 +135,31 @@ class TodoController {
     return todo;
   }
 
-  async create({ body, userId }) {
-    const payload = { ...body, ownerId: userId };
+  /**
+   * Which variant a record is being written under: the project's override
+   * first, then the account's preference. This controller is the only layer
+   * that knows - the registry answers for everything downstream.
+   */
+  async activeVariant({ user, projectId, userId }) {
+    if (projectId) {
+      const { Project } = require("../models");
+      const project = await Project.findOne({ _id: projectId, ownerId: userId })
+        .select("applicationType")
+        .lean();
+      if (project?.applicationType) return project.applicationType;
+    }
+    return user?.preferences?.applicationType || DEFAULT_VARIANT;
+  }
+
+  async create({ body, userId, user }) {
+    const variantId = await this.activeVariant({ user, projectId: body.projectId, userId });
+    // An insert has no other variant's data to drop, so the nested form is safe
+    // here - and it is the only place it is.
+    const variantData = nestVariantData(body.variantData, { variantId, scope: "todo" });
+    delete body.variantData;
+
+    const payload = applyRichText({ ...body, ownerId: userId });
+    if (variantData) payload.variantData = variantData;
     if (payload.status === "completed") payload.completedAt = new Date();
     // New todos lead the manual order.
     const first = await Todo.findOne({ ownerId: userId }).sort({ order: 1 }).select("order").lean();
@@ -145,9 +170,24 @@ class TodoController {
     return todo;
   }
 
-  async update({ todoId, body, userId }) {
+  async update({ todoId, body, userId, user }) {
     const todo = await Todo.findOne({ _id: todoId, ownerId: userId });
     if (!todo) throw ApiError.notFound("Todo not found");
+
+    // Extra fields never travel with the rest of the body: `todo.variantData =
+    // {...}` would drop every other variant's data, and Mixed does not track
+    // nested mutation, so only a dot-path update persists at all.
+    const variantId = await this.activeVariant({
+      user,
+      projectId: body.projectId ?? todo.projectId,
+      userId,
+    });
+    const variantUpdate = flattenVariantData(body.variantData, { variantId, scope: "todo" });
+    delete body.variantData;
+
+    // Keeps the plaintext mirror in step with the markup, whichever the
+    // caller sent. Must happen before anything reads the body.
+    applyRichText(body);
 
     if (body.blockedBy !== undefined) {
       await this.assertDependenciesValid({ todoId, blockedBy: body.blockedBy, userId });
@@ -173,6 +213,13 @@ class TodoController {
       if (value !== undefined) todo[key] = value;
     });
     await todo.save();
+
+    if (Object.keys(variantUpdate).length) {
+      await Todo.updateOne({ _id: todo._id, ownerId: userId }, { $set: variantUpdate });
+      // The in-memory document predates that write, so the response is re-read
+      // rather than reporting what it used to hold.
+      todo.set("variantData", (await Todo.findById(todo._id).select("variantData").lean()).variantData);
+    }
 
     await ActivityController.recordTodoChanges({
       todoId: todo._id,
@@ -307,7 +354,10 @@ class TodoController {
     const todo = await this.getTodoById({ todoId, userId });
     return Todo.create({
       title: `${todo.title} (copy)`.slice(0, 100),
+      // The copy keeps its formatting; only the plain title gains "(copy)".
+      titleHtml: todo.titleHtml || "",
       description: todo.description,
+      descriptionHtml: todo.descriptionHtml || "",
       ownerId: userId,
       status: "pending",
       priority: todo.priority,

@@ -20,9 +20,29 @@ const todoFields = {
     maxlength: 100,
     trim: true,
   },
+  /**
+   * The plaintext mirror of `descriptionHtml`, derived on the server.
+   *
+   * Load-bearing: the text index, CSV export, quick-add, search highlighting
+   * and every list card read this. The limit is 40000 rather than 1500 because
+   * plaintext derived from a real formatted document routinely exceeds 1500,
+   * and the mirror write would otherwise fail validation.
+   */
   description: {
     type: String,
-    maxlength: 1500,
+    maxlength: 40000,
+    default: "",
+  },
+  /** Sanitized rich text. Never rendered without having come through sanitize.js. */
+  descriptionHtml: {
+    type: String,
+    maxlength: 40000,
+    default: "",
+  },
+  /** Inline marks only - a title renders inside one-line cells. */
+  titleHtml: {
+    type: String,
+    maxlength: 2000,
     default: "",
   },
   ownerId: {
@@ -73,6 +93,33 @@ const todoFields = {
   timerStartedAt: { type: Date, default: null },
   // Todos that must finish before this one can.
   blockedBy: [{ type: Schema.Types.ObjectId, ref: "Todo" }],
+  /**
+   * The last PDF version number handed out for this todo.
+   *
+   * Allocated with $inc and never by counting the versions that exist: two
+   * clicks a moment apart would both count three and both produce a v4.
+   * Deleting a version does not lower it - v4 stays taken, which is what keeps
+   * an already-downloaded filename unambiguous.
+   */
+  pdfVersionSeq: { type: Number, default: 0, min: 0 },
+  /**
+   * The extra fields the application variants add, keyed by variant id:
+   * `{ school: { course: "Physics" } }`.
+   *
+   * Mixed rather than five typed sub-schemas: forty schema paths would be cast
+   * by Mongoose on every read of every todo, and each new variant field would
+   * be a migration. The registry in server/config/variants.js owns the shape
+   * and zod validates it on the way in.
+   *
+   * Always written as dot paths (`variantData.school.course`) - see
+   * flattenVariantData. A whole-object assignment would drop the other
+   * variants' data, and Mixed does not track nested mutation anyway.
+   *
+   * Mongoose minimizes empty objects away, so this path is simply **absent**
+   * on a record that has never carried extras - which is why every reader
+   * optional-chains it rather than assuming `{}`.
+   */
+  variantData: { type: Schema.Types.Mixed, default: () => ({}) },
 };
 
 const todoSchema = new Schema(todoFields, { timestamps: true });

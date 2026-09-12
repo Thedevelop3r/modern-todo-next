@@ -16,7 +16,9 @@ import {
   useToast,
 } from "@/components/ui";
 import { PriorityBadge } from "@/components/todo/TodoBits";
-import { useDeleteTemplate, useTemplates, useUseTemplate } from "@/hooks/useLibrary";
+import { useCreateTemplate, useDeleteTemplate, useTemplates, useUseTemplate } from "@/hooks/useLibrary";
+import { useVariant } from "@/hooks/useVariant";
+import { textToHtml } from "@/lib/richtext";
 
 export default function TemplatesPage() {
   const router = useRouter();
@@ -27,6 +29,15 @@ export default function TemplatesPage() {
 
   const [deleting, setDeleting] = React.useState<TodoTemplate | null>(null);
 
+  const { variant, t, lower } = useVariant();
+  const createTemplate = useCreateTemplate();
+
+  // Seeds the variant suggests, minus the ones already taken. Registry data,
+  // not a branch: a variant with no seeds shows nothing here.
+  const suggestions = (variant.seedTemplates || []).filter(
+    (seed) => !templates?.some((template) => template.name === seed.name)
+  );
+
   return (
     <PageTransition className="mx-auto max-w-3xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -35,9 +46,48 @@ export default function TemplatesPage() {
         </p>
         <Button size="sm" onClick={() => router.push("/dashboard/templates/new")}>
           <Plus className="h-4 w-4" />
-          New template
+          New {lower("template")}
         </Button>
       </div>
+
+      {suggestions.length > 0 && (
+        <Card>
+          <CardContent className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
+              Suggested for {variant.label}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((seed) => (
+                <Button
+                  key={seed.name}
+                  variant="secondary"
+                  size="xs"
+                  onClick={() =>
+                    createTemplate.mutate(
+                      {
+                        name: seed.name,
+                        title: seed.title,
+                        description: seed.description || "",
+                        descriptionHtml: textToHtml(seed.description || ""),
+                      },
+                      {
+                        onSuccess: () => toast.success(`${seed.name} added`),
+                        onError: (error) =>
+                          toast.error(`Could not add that ${lower("template")}`, {
+                            description: (error as Error).message,
+                          }),
+                      }
+                    )
+                  }
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {seed.name}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -48,8 +98,10 @@ export default function TemplatesPage() {
       ) : !templates?.length ? (
         <EmptyState
           icon={<FileStack className="h-6 w-6" />}
-          title="No templates yet"
-          description="Create one here, or save any existing todo as a template from its detail page."
+          title={`No ${lower("template", "many")} yet`}
+          description={`Create one here, or save any existing ${lower("todo")} as a ${lower(
+            "template"
+          )} from its detail page.`}
           action={
             <Button onClick={() => router.push("/dashboard/templates/new")}>
               <Plus className="h-4 w-4" />

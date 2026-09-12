@@ -19,6 +19,7 @@ import {
 import { useTheme } from "next-themes";
 import { useUiStore } from "@/store/state";
 import { useTodos } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
 import { useDebounced } from "@/hooks/useFilters";
 import { useRecents } from "@/hooks/useProductivity";
 import { STATUS_DOT } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function CommandPalette() {
   const { data } = useTodos({ q: debounced || undefined, limit: 6, page: 1 });
   const todos = debounced ? data?.data ?? [] : [];
   const { recents } = useRecents();
+  const { t } = useVariant();
 
   // Clear the query each time the palette closes.
   React.useEffect(() => {
@@ -52,7 +54,7 @@ export function CommandPalette() {
   );
 
   const pages = [
-    { icon: CheckSquare, label: "Todos", action: () => router.push("/dashboard") },
+    { icon: CheckSquare, label: t("todo", "many"), action: () => router.push("/dashboard") },
     { icon: BarChart3, label: "Analytics", action: () => router.push("/dashboard/analytics") },
     { icon: Archive, label: "Archive", action: () => router.push("/dashboard/archive") },
     { icon: Trash2, label: "Trash", action: () => router.push("/dashboard/trash") },
@@ -75,7 +77,10 @@ export function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -8 }}
             transition={{ type: "spring", stiffness: 340, damping: 30 }}
-            className="fixed left-1/2 top-[15vh] z-[90] w-[calc(100vw-2rem)] max-w-xl -translate-x-1/2"
+            // Horizontally centred by the inset box, not by a translate class:
+            // Motion writes its own inline `transform` here and would override
+            // one. See the note in ui/Modal.tsx.
+            className="fixed inset-x-4 top-[15vh] z-[90] mx-auto max-w-xl"
           >
             <Command
               loop
@@ -107,7 +112,7 @@ export function CommandPalette() {
                 </Command.Empty>
 
                 {todos.length > 0 && (
-                  <Command.Group heading="Todos" className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-fg-subtle">
+                  <Command.Group heading={t("todo", "many")} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-fg-subtle">
                     {todos.map((todo) => (
                       <Command.Item
                         key={todo._id}

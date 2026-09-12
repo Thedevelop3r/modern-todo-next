@@ -8,7 +8,9 @@ const templateSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 60 },
     ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     title: { type: String, required: true, maxlength: 100 },
-    description: { type: String, default: "", maxlength: 1500 },
+    description: { type: String, default: "", maxlength: 40000 },
+    descriptionHtml: { type: String, default: "", maxlength: 40000 },
+    titleHtml: { type: String, default: "", maxlength: 2000 },
     priority: {
       type: String,
       enum: ["none", "low", "medium", "high", "urgent"],
@@ -26,6 +28,8 @@ const templateSchema = new Schema(
     // Days from creation to the due date, rather than a fixed date.
     dueInDays: { type: Number, default: null, min: 0, max: 3650 },
     useCount: { type: Number, default: 0 },
+    /** As on Todo: variant extras, keyed by variant id, so a template can seed them. */
+    variantData: { type: Schema.Types.Mixed, default: () => ({}) },
   },
   { timestamps: true }
 );

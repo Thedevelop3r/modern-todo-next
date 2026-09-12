@@ -1,0 +1,105 @@
+Running the PDF renderer as its own service
+===========================================
+
+Today the renderer is a child process of `server.js` inside the application
+container. That is a deployment choice, not an architectural one: the service
+already speaks HTTP, holds no state, never touches MongoDB and never reads the
+filesystem outside its own binary. Splitting it out is configuration.
+
+Why you would: the renderer is CPU-bound and competes with ffmpeg, Node and Next
+for the same cores. Once PDF volume is real, give it its own box and scale it
+separately.
+
+What must stay true after the split
+-----------------------------------
+
+* The renderer is reachable **only from the application**. It has no
+  authentication of its own beyond one shared key, and it is not a public API.
+  Under compose that means `expose`, never `ports` - `expose` opens the port on
+  the internal network only, `ports` publishes it on the host.
+* `PDF_SERVICE_KEY` is identical on both sides and is at least 16 characters.
+  The renderer exits at boot without one rather than run open.
+* The renderer binds `127.0.0.1` unless `PDF_SERVICE_HOST` says otherwise.
+  Alone in its own container that has to become `0.0.0.0`, because "inside the
+  container" and "inside the application" are no longer the same place. Set it
+  nowhere else.
+
+1. A standalone Dockerfile: services/pdf/Dockerfile
+--------------------------------------------------
+
+    # syntax=docker/dockerfile:1
+    FROM rust:1-slim AS builder
+    WORKDIR /build
+    COPY Cargo.toml Cargo.lock ./
+    RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+    COPY . ./
+    RUN touch src/main.rs && cargo build --release
+
+    # Fonts and templates are compiled into the binary, so the runtime image
+    # needs nothing but a libc and a non-root user.
+    FROM debian:bookworm-slim
+    RUN useradd --system --uid 10001 renderer
+    COPY --from=builder /build/target/release/modern-todo-pdf /usr/local/bin/modern-todo-pdf
+    USER renderer
+    ENV PDF_SERVICE_HOST=0.0.0.0
+    EXPOSE 8787
+    CMD ["modern-todo-pdf"]
+
+Build context is `services/pdf/`, not the repository root - the service shares no
+code with the application.
+
+2. The compose service
+----------------------
+
+    services:
+      pdf:
+        build: ./services/pdf
+        restart: unless-stopped
+        # Internal network only. `expose` is not `ports`: nothing reaches this
+        # from the host.
+        expose:
+          - "8787"
+        environment:
+          PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
+          PDF_SERVICE_PORT: 8787
+          # Alone in a container, loopback would admit nobody at all.
+          PDF_SERVICE_HOST: 0.0.0.0
+          RUST_LOG: info
+        # It writes nothing and reads nothing; take the filesystem away.
+        read_only: true
+        security_opt:
+          - no-new-privileges:true
+
+      app:
+        depends_on:
+          - mongodb
+          - pdf
+        environment:
+          PDF_SERVICE_SPAWN: 0
+          PDF_SERVICE_URL: http://pdf:8787
+
+3. The one-line change in the application
+-----------------------------------------
+
+There isn't one. `PDF_SERVICE_SPAWN=0` stops `server/services/pdf-service.js`
+spawning a child, and `PDF_SERVICE_URL` tells `server/services/pdf.client.js`
+where to look; both are read from the environment at call time. No code moves.
+
+Also drop the renderer from the application image once it is split: delete the
+`pdf-builder` stage and its `COPY --from=pdf-builder` line in the root
+`Dockerfile`. That is the several minutes and several hundred megabytes the
+split buys back.
+
+4. Beyond compose
+-----------------
+
+* **Kubernetes**: a Deployment plus a ClusterIP Service (never a LoadBalancer or
+  an Ingress), a NetworkPolicy admitting only the application's pods on 8787,
+  and `PDF_SERVICE_KEY` from a Secret. Liveness and readiness both probe
+  `GET /health`, which needs no key.
+* **Scaling**: the service is stateless, so replicas need no coordination. One
+  render pins one core for its duration; size the CPU request accordingly and
+  scale on CPU rather than on request count.
+* **Timeouts**: the renderer's own limit is 20 s, and the client's matches. Any
+  proxy between them must allow more than that, or a slow render surfaces as a
+  502 with no log line on either side.

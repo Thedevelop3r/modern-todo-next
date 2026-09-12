@@ -8,6 +8,8 @@ const RECURRENCE = ["none", "daily", "weekly", "monthly"];
 const VIEWS = ["list", "grid", "board", "calendar", "table"];
 const UI_SCALES = ["xs", "small", "normal", "large", "xl"];
 const THEME_IDS = require("../../shared/themes.json").map((theme) => theme.id);
+const { TIER_IDS, PER_FILE_TIER_IDS } = require("../config/storage");
+const { VARIANT_IDS } = require("../config/variants");
 
 /** A Google Fonts family name, or "" for the built-in Inter. */
 const FONT_FAMILY = z
@@ -54,6 +56,15 @@ const preferencesSchema = z
     uiScale: z.enum(UI_SCALES).optional(),
     themeId: z.enum(THEME_IDS, { message: "Unknown theme" }).optional(),
     fontFamily: FONT_FAMILY.optional(),
+    applicationType: z.enum(VARIANT_IDS, { message: "Unknown application type" }).optional(),
+  })
+  .strip();
+
+/** Changing the storage plan. Billing is not wired up - see stripe-integration.txt. */
+const storageTierSchema = z
+  .object({
+    tier: z.enum(TIER_IDS).optional(),
+    perFileTier: z.enum(PER_FILE_TIER_IDS).optional(),
   })
   .strip();
 
@@ -75,9 +86,24 @@ const nullableDate = z
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid id");
 
+/**
+ * Rich text as it arrives from the editor.
+ *
+ * The cap is generous because this is markup, not prose - the server sanitizes
+ * it down to an allowlist immediately afterwards, so the only job here is to
+ * stop something absurd reaching the sanitizer.
+ */
+const richHtml = z.string().max(40000).optional();
+const inlineHtml = z.string().max(2000).optional();
+
+/** The derived plaintext mirror, which is now as long as the markup can be. */
+const richText = z.string().trim().max(40000).optional();
+
 const createTodoSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100),
-  description: z.string().trim().max(1500).optional().default(""),
+  titleHtml: inlineHtml,
+  description: richText.default(""),
+  descriptionHtml: richHtml,
   status: z.enum(STATUS).default("pending"),
   priority: z.enum(PRIORITY).default("none"),
   tags: z.array(z.string().trim().min(1).max(24)).max(10).default([]),
@@ -90,13 +116,23 @@ const createTodoSchema = z.object({
   startDate: nullableDate,
   estimate: z.union([z.coerce.number().min(0).max(1000), z.null()]).optional(),
   blockedBy: z.array(objectId).max(20).default([]),
+  /**
+   * The active variant's extra fields, as `{ <variantId>: { ... } }`.
+   *
+   * Only the shape is checked here. The controller is the layer that knows
+   * which variant is in force, so it validates the sub-object against that
+   * variant's field definitions and flattens it to dot paths.
+   */
+  variantData: z.record(z.string(), z.unknown()).optional(),
 });
 
 // Every field optional on update; only what is sent gets written.
 const updateTodoSchema = z
   .object({
     title: z.string().trim().min(1).max(100).optional(),
-    description: z.string().trim().max(1500).optional(),
+    titleHtml: inlineHtml,
+    description: richText,
+    descriptionHtml: richHtml,
     status: z.enum(STATUS).optional(),
     priority: z.enum(PRIORITY).optional(),
     tags: z.array(z.string().trim().min(1).max(24)).max(10).optional(),
@@ -110,6 +146,7 @@ const updateTodoSchema = z
     startDate: nullableDate,
     estimate: z.union([z.coerce.number().min(0).max(1000), z.null()]).optional(),
     blockedBy: z.array(objectId).max(20).optional(),
+    variantData: z.record(z.string(), z.unknown()).optional(),
   })
   .strip();
 
@@ -179,11 +216,17 @@ const listQuerySchema = z.object({
 
 const projectSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60),
-  description: z.string().trim().max(500).optional().default(""),
+  description: richText.default(""),
+  descriptionHtml: richHtml,
   color: z
     .enum(["slate", "red", "orange", "amber", "green", "teal", "sky", "indigo", "violet", "pink"])
     .default("indigo"),
   archived: z.boolean().default(false),
+  /** Printed on every generated PDF's header, whatever the variant. */
+  organizationName: z.string().trim().max(120).default(""),
+  /** null means "inherit the account's variant", which is the default. */
+  applicationType: z.union([z.enum(VARIANT_IDS), z.null()]).optional(),
+  variantData: z.record(z.string(), z.unknown()).optional(),
 });
 
 const projectUpdateSchema = projectSchema.partial().strip();
@@ -201,7 +244,9 @@ const savedViewUpdateSchema = savedViewSchema.partial().strip();
 const templateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60),
   title: z.string().trim().min(1, "Title is required").max(100),
-  description: z.string().trim().max(1500).optional().default(""),
+  titleHtml: inlineHtml,
+  description: richText.default(""),
+  descriptionHtml: richHtml,
   priority: z.enum(PRIORITY).default("none"),
   tags: z.array(z.string().trim().min(1).max(24)).max(10).default([]),
   subtasks: z.array(subtask).max(50).default([]),
@@ -209,6 +254,7 @@ const templateSchema = z.object({
   projectId: z.union([objectId, z.null()]).optional(),
   recurrence: z.enum(RECURRENCE).default("none"),
   dueInDays: z.union([z.coerce.number().int().min(0).max(3650), z.null()]).optional(),
+  variantData: z.record(z.string(), z.unknown()).optional(),
 });
 
 const templateUpdateSchema = templateSchema.partial().strip();
@@ -272,6 +318,7 @@ module.exports = {
   changePasswordSchema,
   profileSchema,
   preferencesSchema,
+  storageTierSchema,
   createTodoSchema,
   updateTodoSchema,
   bulkSchema,

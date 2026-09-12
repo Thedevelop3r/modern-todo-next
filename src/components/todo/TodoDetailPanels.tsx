@@ -39,6 +39,66 @@ import { useTodos, useUpdateTodo } from "@/hooks/useTodos";
 import { useDebounced } from "@/hooks/useFilters";
 import { cn, formatDuration, liveMinutes } from "@/lib/utils";
 import { formatDateTime, relativeTime } from "@/lib/date";
+import { useVariant } from "@/hooks/useVariant";
+import { dormantVariants } from "@/lib/variants";
+import { VariantFieldList, type VariantValues } from "@/components/variant/VariantFields";
+
+/**
+ * The variant's own fields for one record, read-only.
+ *
+ * Below it, a collapsed panel per *dormant* variant - one this record carries
+ * data for but which is not in force. Switching variants hides fields, it never
+ * deletes them, and this is the visible proof of that: the data is still there
+ * and still readable.
+ */
+export function VariantPanel({ todo }: { todo: Todo }) {
+  const { variant, todoFields } = useVariant(todo.projectId);
+  const values = (todo.variantData?.[variant.id] as VariantValues) || {};
+  const dormant = dormantVariants(todo.variantData, variant.id);
+
+  const filled = todoFields.some((field) => {
+    const value = values[field.key];
+    return value !== null && value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
+  });
+
+  if (!filled && dormant.length === 0) return null;
+
+  return (
+    <Card>
+      <CardContent className="space-y-4">
+        {filled && (
+          <>
+            <h2 className="text-sm font-semibold text-fg">{variant.label} details</h2>
+            <VariantFieldList fields={todoFields} values={values} />
+          </>
+        )}
+
+        {dormant.map(({ variant: other, values: otherValues }) => (
+          <details key={other.id} className="rounded-lg border border-border bg-surface-sunken px-3 py-2">
+            <summary className="cursor-pointer text-xs font-medium text-fg-muted">
+              Fields from {other.label} · {Object.keys(otherValues).length} kept
+            </summary>
+            <div className="pt-3">
+              <VariantFieldList fields={other.todoFields} values={otherValues as VariantValues} muted />
+              {other.todoFields.length === 0 && (
+                // A variant whose definitions this build does not carry still
+                // shows its data rather than pretending it is gone.
+                <dl className="grid gap-2 sm:grid-cols-2">
+                  {Object.entries(otherValues).map(([key, value]) => (
+                    <div key={key}>
+                      <dt className="text-xs uppercase tracking-wide text-fg-subtle">{key}</dt>
+                      <dd className="text-sm text-fg-muted">{String(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </div>
+          </details>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 /** Start/stop button plus a live-ticking elapsed readout. */
 export function TimerControl({ todo }: { todo: Todo }) {

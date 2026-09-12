@@ -3,6 +3,8 @@
 const bcrypt = require("bcrypt");
 const { Mongoose } = require("../db.config");
 const THEME_IDS = require("../../shared/themes.json").map((theme) => theme.id);
+const { TIER_IDS, PER_FILE_TIER_IDS, quotaForTier } = require("../config/storage");
+const { VARIANT_IDS, DEFAULT_VARIANT } = require("../config/variants");
 const { Schema, model } = Mongoose;
 
 const preferencesSchema = new Schema(
@@ -17,6 +19,28 @@ const preferencesSchema = new Schema(
     density: { type: String, enum: ["comfortable", "compact"], default: "comfortable" },
     /** Root font size: everything is rem-based, so this scales the whole UI. */
     uiScale: { type: String, enum: ["xs", "small", "normal", "large", "xl"], default: "normal" },
+    /**
+     * Which application variant this account runs as. A project may override
+     * it; nothing branches on the value - the registry answers for it.
+     */
+    applicationType: { type: String, enum: VARIANT_IDS, default: DEFAULT_VARIANT },
+  },
+  { _id: false }
+);
+
+/**
+ * The account's object-storage allowance. `usedBytes` is maintained by
+ * StorageController's reserve/reconcile pair rather than by counting files on
+ * read - a standalone mongod has no transactions, so a single conditional
+ * update on this document is what keeps concurrent uploads honest.
+ */
+const storageSchema = new Schema(
+  {
+    usedBytes: { type: Number, default: 0, min: 0 },
+    quotaBytes: { type: Number, default: () => quotaForTier("base") },
+    tier: { type: String, enum: TIER_IDS, default: "base" },
+    /** Sold separately from the quota, so it is its own tier. */
+    perFileTier: { type: String, enum: PER_FILE_TIER_IDS, default: "base" },
   },
   { _id: false }
 );
@@ -77,6 +101,7 @@ const userSchema = new Schema(
     },
     avatar: { type: String, default: "initials", maxlength: 64 },
     preferences: { type: preferencesSchema, default: () => ({}) },
+    storage: { type: storageSchema, default: () => ({}) },
     lastLoginAt: { type: Date, default: null },
     /** Bumped to invalidate every token at once ("revoke all sessions"). */
     tokenVersion: { type: Number, default: 0 },

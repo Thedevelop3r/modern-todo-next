@@ -13,6 +13,7 @@ import {
   Progress,
   Spinner,
   Tag,
+  RichTextView,
   useToast,
 } from "@/components/ui";
 import { BlockedBadge, DueBadge, EstimateBadge, PriorityBadge, StartBadge, StatusBadge, TimeBadge } from "@/components/todo/TodoBits";
@@ -21,6 +22,7 @@ import {
   ActivityPanel,
   CommentsPanel,
   DependencyPanel,
+  VariantPanel,
   TimerControl,
 } from "@/components/todo/TodoDetailPanels";
 import { useProjects } from "@/hooks/useProjects";
@@ -28,6 +30,8 @@ import { useTemplateFromTodo } from "@/hooks/useLibrary";
 import { useDeleteTodo, useDuplicateTodo, useTodo, useUpdateTodo } from "@/hooks/useTodos";
 import { useTrackRecent } from "@/hooks/useProductivity";
 import { formatDateTime, relativeTime } from "@/lib/date";
+import { AttachmentsPanel } from "@/components/files";
+import { PdfPanel } from "@/components/todo/PdfPanel";
 import { subtaskProgress } from "@/lib/utils";
 
 export default function TodoDetailPage({ params }: { params: { todoId: string } }) {
@@ -143,7 +147,16 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
       <Card>
         <CardContent className="space-y-5">
           <div>
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight text-fg">{todo.title}</h1>
+            {/* The markup is what the server sanitized on write - that, and
+                nothing else, is what makes this safe to render. */}
+            {todo.titleHtml ? (
+              <h1
+                className="prose-content text-2xl font-semibold leading-tight tracking-tight text-fg"
+                dangerouslySetInnerHTML={{ __html: todo.titleHtml }}
+              />
+            ) : (
+              <h1 className="text-2xl font-semibold leading-tight tracking-tight text-fg">{todo.title}</h1>
+            )}
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <StatusBadge status={todo.status} />
               <PriorityBadge priority={todo.priority} />
@@ -165,9 +178,7 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
             </div>
           </div>
 
-          {todo.description && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">{todo.description}</p>
-          )}
+          <RichTextView html={todo.descriptionHtml} text={todo.description} />
 
           <div className="border-t border-border pt-4">
             <TimerControl todo={todo} />
@@ -235,6 +246,12 @@ export default function TodoDetailPage({ params }: { params: { todoId: string } 
           </div>
         </CardContent>
       </Card>
+
+      <VariantPanel todo={todo} />
+
+      <AttachmentsPanel scopeKind="todo" scopeId={todoId} />
+
+      <PdfPanel kind="todo" id={todoId} />
 
       <DependencyPanel todo={todo} />
 

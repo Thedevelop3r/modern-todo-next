@@ -1,0 +1,199 @@
+{
+  "id": "school",
+  "label": "School",
+  "description": "Assignments with courses, weights and scores, plus a gradebook.",
+  "icon": "graduation-cap",
+  "capabilities": [
+    "grading"
+  ],
+  "terms": {
+    "todo": {
+      "one": "Assignment",
+      "many": "Assignments"
+    },
+    "project": {
+      "one": "Course",
+      "many": "Courses"
+    },
+    "template": {
+      "one": "Template",
+      "many": "Templates"
+    },
+    "tag": {
+      "one": "Subject",
+      "many": "Subjects"
+    }
+  },
+  "statusLabels": {
+    "pending": "Not started",
+    "progress": "In progress",
+    "completed": "Submitted"
+  },
+  "priorityLabels": {
+    "none": "None",
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "urgent": "Urgent"
+  },
+  "pdfTemplate": "school",
+  "pdfHighlights": [
+    "score",
+    "maxScore",
+    "weight"
+  ],
+  "todoFields": [
+    {
+      "key": "course",
+      "label": "Course",
+      "type": "string",
+      "max": 60,
+      "placeholder": "Physics"
+    },
+    {
+      "key": "gradeLevel",
+      "label": "Grade level",
+      "type": "string",
+      "max": 20,
+      "placeholder": "Year 11"
+    },
+    {
+      "key": "assignmentType",
+      "label": "Assignment type",
+      "type": "enum",
+      "options": [
+        {
+          "value": "homework",
+          "label": "Homework"
+        },
+        {
+          "value": "essay",
+          "label": "Essay"
+        },
+        {
+          "value": "project",
+          "label": "Project"
+        },
+        {
+          "value": "lab",
+          "label": "Lab report"
+        },
+        {
+          "value": "quiz",
+          "label": "Quiz"
+        },
+        {
+          "value": "exam",
+          "label": "Exam"
+        }
+      ]
+    },
+    {
+      "key": "weight",
+      "label": "Weight",
+      "type": "number",
+      "min": 0,
+      "max": 100,
+      "hint": "Share of the course grade, as a percentage."
+    },
+    {
+      "key": "maxScore",
+      "label": "Maximum score",
+      "type": "number",
+      "min": 0,
+      "max": 10000
+    },
+    {
+      "key": "score",
+      "label": "Score",
+      "type": "number",
+      "min": 0,
+      "max": 10000,
+      "hint": "Left blank until it comes back marked."
+    },
+    {
+      "key": "submittedAt",
+      "label": "Submitted",
+      "type": "date"
+    }
+  ],
+  "projectFields": [
+    {
+      "key": "subject",
+      "label": "Subject",
+      "type": "string",
+      "max": 60,
+      "placeholder": "Sciences"
+    },
+    {
+      "key": "teacher",
+      "label": "Teacher",
+      "type": "string",
+      "max": 60
+    },
+    {
+      "key": "term",
+      "label": "Term",
+      "type": "enum",
+      "options": [
+        {
+          "value": "autumn",
+          "label": "Autumn"
+        },
+        {
+          "value": "spring",
+          "label": "Spring"
+        },
+        {
+          "value": "summer",
+          "label": "Summer"
+        }
+      ]
+    },
+    {
+      "key": "room",
+      "label": "Room",
+      "type": "string",
+      "max": 20
+    }
+  ],
+  "pages": [
+    {
+      "id": "courses",
+      "label": "Courses",
+      "icon": "graduation-cap",
+      "kind": "group",
+      "groupBy": "course",
+      "emptyLabel": "No course set",
+      "description": "Every assignment, grouped by the course it belongs to."
+    },
+    {
+      "id": "gradebook",
+      "label": "Gradebook",
+      "icon": "chart",
+      "kind": "scoreboard",
+      "groupBy": "course",
+      "scoreField": "score",
+      "maxField": "maxScore",
+      "weightField": "weight",
+      "description": "Weighted grade per course, and how much of each course is still outstanding."
+    }
+  ],
+  "seedTemplates": [
+    {
+      "name": "Essay",
+      "title": "Essay: ",
+      "description": "Thesis, sources, draft, final read-through."
+    },
+    {
+      "name": "Lab report",
+      "title": "Lab report: ",
+      "description": "Method, results, analysis, conclusion."
+    },
+    {
+      "name": "Revision block",
+      "title": "Revise ",
+      "description": "Two hours, past papers, then a summary sheet."
+    }
+  ]
+}

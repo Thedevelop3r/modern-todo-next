@@ -4,8 +4,16 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Save } from "lucide-react";
 import { Button, PageTransition, Spinner, useToast } from "@/components/ui";
-import { TodoForm, draftFromTodo, emptyDraft, validateDraft, type TodoDraft } from "@/components/todo/TodoForm";
+import {
+  TodoForm,
+  draftFromTodoFor,
+  draftToInput,
+  emptyDraft,
+  validateDraft,
+  type TodoDraft,
+} from "@/components/todo/TodoForm";
 import { useTodo, useUpdateTodo } from "@/hooks/useTodos";
+import { useVariant } from "@/hooks/useVariant";
 
 export default function EditTodoPage({ params }: { params: { todoId: string } }) {
   const router = useRouter();
@@ -14,6 +22,7 @@ export default function EditTodoPage({ params }: { params: { todoId: string } })
 
   const { data: todo, isLoading, isError, error } = useTodo(todoId);
   const updateTodo = useUpdateTodo();
+  const { variant } = useVariant(todo?.projectId);
 
   const [draft, setDraft] = React.useState<TodoDraft>(emptyDraft);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -23,9 +32,11 @@ export default function EditTodoPage({ params }: { params: { todoId: string } })
   React.useEffect(() => {
     if (todo && !loaded.current) {
       loaded.current = true;
-      setDraft(draftFromTodo(todo));
+      // Seeded with the active variant's stored values; the others stay on the
+      // record, untouched by this form.
+      setDraft(draftFromTodoFor(todo, variant.id));
     }
-  }, [todo]);
+  }, [todo, variant.id]);
 
   const change = (patch: Partial<TodoDraft>) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -38,7 +49,7 @@ export default function EditTodoPage({ params }: { params: { todoId: string } })
     }
 
     updateTodo.mutate(
-      { id: todoId, input: draft },
+      { id: todoId, input: draftToInput(draft, variant.id) },
       {
         onSuccess: () => {
           toast.success("Changes saved");

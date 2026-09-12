@@ -20,6 +20,8 @@ const activitySchema = new Schema(
 );
 
 activitySchema.index({ ownerId: 1, createdAt: -1 });
+// The chain-of-custody lookup: every event recorded against one stored file.
+activitySchema.index({ ownerId: 1, "meta.fileId": 1, createdAt: -1 });
 activitySchema.index({ todoId: 1, createdAt: -1 });
 
 const Activity = model("Activity", activitySchema);

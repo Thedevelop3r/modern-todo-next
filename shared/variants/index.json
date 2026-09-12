@@ -1,0 +1,5 @@
+{
+  "_comment": "The application variants, in the order the settings gallery lists them. One file each; server/config/variants.js and src/lib/variants.ts are the only two readers.",
+  "default": "general",
+  "variants": ["general", "school", "law-enforcement", "hospital", "restaurant"]
+}

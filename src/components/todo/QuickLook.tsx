@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { CheckCircle2, Circle, Pencil } from "lucide-react";
-import { Button, Modal, Progress, Tag } from "@/components/ui";
+import { Button, Modal, Progress, RichTextView, Tag } from "@/components/ui";
 import {
   BlockedBadge,
   DueBadge,
@@ -72,8 +72,8 @@ export function QuickLook({
           ))}
         </div>
 
-        {todo.description ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">{todo.description}</p>
+        {todo.description || todo.descriptionHtml ? (
+          <RichTextView html={todo.descriptionHtml} text={todo.description} />
         ) : (
           <p className="text-sm text-fg-subtle">No description.</p>
         )}

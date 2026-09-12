@@ -7,6 +7,8 @@ const { Activity } = require("./Activity.model");
 const { SavedView } = require("./SavedView.model");
 const { Template } = require("./Template.model");
 const { AuditLog } = require("./AuditLog.model");
+const { StoredFile } = require("./StoredFile.model");
+const { GeneratedPdf } = require("./GeneratedPdf.model");
 
 module.exports = {
   User,
@@ -18,4 +20,6 @@ module.exports = {
   SavedView,
   Template,
   AuditLog,
+  StoredFile,
+  GeneratedPdf,
 };

@@ -84,6 +84,7 @@ export function Field({
   hint,
   required,
   htmlFor,
+  className,
   children,
 }: {
   label?: string;
@@ -91,10 +92,12 @@ export function Field({
   hint?: React.ReactNode;
   required?: boolean;
   htmlFor?: string;
+  /** Lets a caller place the field in a grid; nothing else about it varies. */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className={className}>
       {label && (
         <Label htmlFor={htmlFor} required={required}>
           {label}

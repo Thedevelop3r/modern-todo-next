@@ -34,8 +34,11 @@ async function disconnect() {
 }
 
 async function reset() {
-  const { collections } = mongoose.connection;
-  await Promise.all(Object.values(collections).map((collection) => collection.deleteMany({})));
+  // Every collection in the database, not just the ones with a model: GridFS
+  // creates files.files and files.chunks on first use, and leftover chunks
+  // would otherwise leak from one test into the next.
+  const collections = await mongoose.connection.db.collections();
+  await Promise.all(collections.map((collection) => collection.deleteMany({})));
 }
 
 /** The Express API mounted exactly as the custom server mounts it. */

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { asyncTryCatchWrapper } = require("../wrapper/async-trycatch");
 const { ProjectController } = require("../controller");
 const { validate } = require("../middleware");
+const { mountPdfRoutes } = require("./pdf.routes");
 const { projectSchema, projectUpdateSchema, reorderSchema } = require("../validation/schemas");
 
 router.get(
@@ -13,6 +14,8 @@ router.get(
     res.status(200).json(projects);
   })
 );
+
+mountPdfRoutes(router, "project");
 
 // Before /:id so "reorder" is not read as an id.
 router.put(
@@ -28,7 +31,7 @@ router.post(
   "/",
   validate(projectSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const project = await ProjectController.create(req.body, req.user._id);
+    const project = await ProjectController.create(req.body, req.user._id, req.user);
     res.status(201).json(project);
   })
 );
@@ -45,7 +48,7 @@ router.put(
   "/:id",
   validate(projectUpdateSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const project = await ProjectController.update(req.params.id, req.body, req.user._id);
+    const project = await ProjectController.update(req.params.id, req.body, req.user._id, req.user);
     res.status(200).json(project);
   })
 );

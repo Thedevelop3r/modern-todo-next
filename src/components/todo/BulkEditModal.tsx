@@ -4,7 +4,8 @@ import * as React from "react";
 import { Button, Field, Input, Modal, NativeSelect, Switch, useToast } from "@/components/ui";
 import { useBulkTodos } from "@/hooks/useTodos";
 import { useProjects } from "@/hooks/useProjects";
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL } from "@/lib/utils";
+import { PRIORITIES, STATUSES } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 
 const UNCHANGED = "__unchanged__";
 
@@ -28,6 +29,7 @@ export function BulkEditModal({
   const toast = useToast();
   const bulk = useBulkTodos();
   const { data: projects } = useProjects();
+  const { statusLabel, priorityLabel } = useVariant();
 
   const [status, setStatus] = React.useState(UNCHANGED);
   const [priority, setPriority] = React.useState(UNCHANGED);
@@ -100,7 +102,7 @@ export function BulkEditModal({
             <option value={UNCHANGED}>Leave unchanged</option>
             {STATUSES.map((value) => (
               <option key={value} value={value}>
-                {STATUS_LABEL[value]}
+                {statusLabel(value)}
               </option>
             ))}
           </NativeSelect>
@@ -111,7 +113,7 @@ export function BulkEditModal({
             <option value={UNCHANGED}>Leave unchanged</option>
             {PRIORITIES.map((value) => (
               <option key={value} value={value}>
-                {PRIORITY_LABEL[value]}
+                {priorityLabel(value)}
               </option>
             ))}
           </NativeSelect>

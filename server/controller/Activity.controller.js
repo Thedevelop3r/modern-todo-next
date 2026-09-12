@@ -72,6 +72,22 @@ class ActivityController {
     return Activity.find({ todoId, ownerId: userId }).sort({ createdAt: -1 }).limit(limit).lean();
   }
 
+  /**
+   * The chain of custody for one stored file.
+   *
+   * Every file event is recorded here rather than on a table of its own: the
+   * Activity model is already append-only and never edited, which is the only
+   * property a custody trail actually needs. Rows are matched on `meta.fileId`
+   * so the trail outlives the file - a deletion is the most important entry in
+   * it, and a trail that disappeared with the bytes would be worthless.
+   */
+  async forFile({ fileId, userId, limit = 50 }) {
+    return Activity.find({ ownerId: userId, "meta.fileId": String(fileId) })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+  }
+
   async forUser({ userId, limit = 50 }) {
     return Activity.find({ ownerId: userId }).sort({ createdAt: -1 }).limit(limit).lean();
   }

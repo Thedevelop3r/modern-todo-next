@@ -13,6 +13,9 @@ const next = require("next");
 const { DatabaseConnection } = require("./server/db.config");
 const { apiApp } = require("./server/app");
 const { Tools } = require("./server/utils/tools");
+const { runStorageSweep } = require("./server/services/storage-sweep");
+const { jobRegistry } = require("./server/services/job-registry");
+const { startPdfService, stopPdfService } = require("./server/services/pdf-service");
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";
@@ -30,6 +33,16 @@ async function main() {
   await dbConnection.connect();
   Tools.Fancy.Display("Database connected");
 
+  // Uploads that were in flight when this process last stopped cannot be
+  // resumed, so they are cleared before anything can read a stale counter.
+  const swept = await runStorageSweep();
+  if (swept.files || swept.temps) {
+    console.log(`storage sweep: ${swept.files} interrupted file(s), ${swept.temps} temp file(s) removed`);
+  }
+
+  // The renderer is a child of this process, so it lives and dies with it.
+  startPdfService();
+
   await nextApp.prepare();
 
   const server = express();
@@ -46,6 +59,10 @@ async function main() {
   const shutdown = async (signal) => {
     Tools.Fancy.Display(`Received ${signal}, shutting down`);
     httpServer.close();
+    // Kill any ffmpeg still running and close the progress streams, before the
+    // database they would try to write to disappears.
+    jobRegistry.abortAll();
+    stopPdfService();
     await dbConnection.disconnect();
     process.exit(0);
   };

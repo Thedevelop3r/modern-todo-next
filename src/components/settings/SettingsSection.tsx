@@ -47,6 +47,7 @@ export function Section({
 const TABS = [
   { href: "/dashboard/settings", label: "Profile" },
   { href: "/dashboard/settings/appearance", label: "Appearance" },
+  { href: "/dashboard/settings/application", label: "Application" },
   { href: "/dashboard/settings/data", label: "Data" },
   { href: "/dashboard/settings/security", label: "Security" },
 ];

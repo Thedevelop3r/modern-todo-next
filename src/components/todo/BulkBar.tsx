@@ -13,7 +13,8 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui";
-import { PRIORITIES, PRIORITY_LABEL, STATUSES, STATUS_LABEL, PROJECT_COLORS, cn } from "@/lib/utils";
+import { PRIORITIES, STATUSES, PROJECT_COLORS, cn } from "@/lib/utils";
+import { useVariant } from "@/hooks/useVariant";
 import { useProjects } from "@/hooks/useProjects";
 
 export type BulkAction = { action: string; value?: unknown };
@@ -32,6 +33,7 @@ export function BulkBar({
 }) {
   const [tagValue, setTagValue] = React.useState("");
   const { data: projects } = useProjects();
+  const { statusLabel, priorityLabel } = useVariant();
 
   const applyTag = () => {
     const value = tagValue.trim();
@@ -66,14 +68,14 @@ export function BulkBar({
                 <MenuLabel>Set status</MenuLabel>
                 {STATUSES.map((status) => (
                   <MenuItem key={status} onSelect={() => onAction({ action: "status", value: status })}>
-                    {STATUS_LABEL[status]}
+                    {statusLabel(status)}
                   </MenuItem>
                 ))}
                 <MenuSeparator />
                 <MenuLabel>Set priority</MenuLabel>
                 {PRIORITIES.map((priority) => (
                   <MenuItem key={priority} onSelect={() => onAction({ action: "priority", value: priority })}>
-                    {PRIORITY_LABEL[priority]}
+                    {priorityLabel(priority)}
                   </MenuItem>
                 ))}
               </MenuContent>

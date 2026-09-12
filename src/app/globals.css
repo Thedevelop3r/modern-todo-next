@@ -163,6 +163,132 @@
  * Print. Chrome for the screen is dropped, colours are forced light, and cards
  * become plain bordered blocks so a printed review is legible in black and white.
  */
+/* ---- rich text -------------------------------------------------------- */
+/* Shared by the editor (.prose-editor) and the read-only view
+   (.prose-content), so what a person types looks the same once saved.
+   Every colour here is a semantic token, so all 50 themes come for free. */
+
+.prose-editor:focus-visible {
+  outline: none;
+}
+
+.prose-editor p,
+.prose-content p {
+  margin: 0 0 0.65em;
+}
+
+.prose-editor p:last-child,
+.prose-content p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-editor h2,
+.prose-content h2 {
+  margin: 0.8em 0 0.4em;
+  font-size: 1.15em;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+
+.prose-editor h3,
+.prose-content h3 {
+  margin: 0.7em 0 0.35em;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+
+.prose-editor ul,
+.prose-content ul,
+.prose-editor ol,
+.prose-content ol {
+  margin: 0 0 0.65em;
+  padding-left: 1.35em;
+}
+
+.prose-editor ul,
+.prose-content ul {
+  list-style: disc;
+}
+
+.prose-editor ol,
+.prose-content ol {
+  list-style: decimal;
+}
+
+.prose-editor li,
+.prose-content li {
+  margin: 0.15em 0;
+}
+
+.prose-editor blockquote,
+.prose-content blockquote {
+  margin: 0 0 0.65em;
+  border-left: 3px solid rgb(var(--border-strong));
+  padding-left: 0.9em;
+  color: rgb(var(--fg-muted));
+}
+
+.prose-editor code,
+.prose-content code {
+  border-radius: 0.25rem;
+  background: rgb(var(--surface-sunken));
+  padding: 0.1em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.prose-editor pre,
+.prose-content pre {
+  overflow-x: auto;
+  margin: 0 0 0.65em;
+  border-radius: 0.5rem;
+  background: rgb(var(--surface-sunken));
+  padding: 0.7em 0.9em;
+}
+
+.prose-editor pre code,
+.prose-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.prose-editor a,
+.prose-content a {
+  color: rgb(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-editor mark,
+.prose-content mark {
+  border-radius: 0.2rem;
+  /* A tinted band rather than a flat yellow, so it reads in every theme. */
+  background: rgb(var(--warning) / 0.3);
+  color: inherit;
+  padding: 0.05em 0.2em;
+}
+
+.prose-editor strong,
+.prose-content strong {
+  font-weight: 600;
+  color: rgb(var(--fg));
+}
+
+/* The placeholder is a pseudo-element so it never becomes part of the value. */
+.prose-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: rgb(var(--fg-subtle));
+  pointer-events: none;
+}
+
+/* A title is one line: keep it on one, whatever is pasted in. */
+.prose-editor[aria-multiline="false"] p {
+  margin: 0;
+}
+
 @media print {
   :root {
     --bg: 255 255 255;

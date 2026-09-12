@@ -1,0 +1,229 @@
+{
+  "id": "hospital",
+  "label": "Hospital",
+  "description": "Ward tasks by patient reference, triage severity and shift.",
+  "notice": {
+    "title": "A task manager, not a medical record",
+    "body": "This application is not an EHR and is not a medical device. Do not record clinical findings, diagnoses or patient names here - use a patient reference. File reads are not audited."
+  },
+  "icon": "stethoscope",
+  "capabilities": [
+    "disclaimer"
+  ],
+  "terms": {
+    "todo": {
+      "one": "Task",
+      "many": "Tasks"
+    },
+    "project": {
+      "one": "Ward",
+      "many": "Wards"
+    },
+    "template": {
+      "one": "Protocol",
+      "many": "Protocols"
+    },
+    "tag": {
+      "one": "Flag",
+      "many": "Flags"
+    }
+  },
+  "statusLabels": {
+    "pending": "To do",
+    "progress": "In progress",
+    "completed": "Done"
+  },
+  "priorityLabels": {
+    "none": "Routine",
+    "low": "Low",
+    "medium": "Standard",
+    "high": "Urgent",
+    "urgent": "Immediate"
+  },
+  "pdfTemplate": "hospital",
+  "pdfHighlights": [
+    "patientRef",
+    "triage",
+    "dueWindow"
+  ],
+  "pdfBannerField": "confidentialityNote",
+  "todoFields": [
+    {
+      "key": "patientRef",
+      "label": "Patient reference",
+      "type": "string",
+      "max": 40,
+      "placeholder": "MRN or local reference",
+      "hint": "A reference, never a name. This app is not a medical record."
+    },
+    {
+      "key": "ward",
+      "label": "Ward",
+      "type": "string",
+      "max": 40
+    },
+    {
+      "key": "bed",
+      "label": "Bed",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "triage",
+      "label": "Triage",
+      "type": "enum",
+      "options": [
+        {
+          "value": "immediate",
+          "label": "Immediate"
+        },
+        {
+          "value": "urgent",
+          "label": "Urgent"
+        },
+        {
+          "value": "standard",
+          "label": "Standard"
+        },
+        {
+          "value": "non-urgent",
+          "label": "Non-urgent"
+        }
+      ]
+    },
+    {
+      "key": "careType",
+      "label": "Care type",
+      "type": "enum",
+      "options": [
+        {
+          "value": "observation",
+          "label": "Observation"
+        },
+        {
+          "value": "medication",
+          "label": "Medication"
+        },
+        {
+          "value": "procedure",
+          "label": "Procedure"
+        },
+        {
+          "value": "review",
+          "label": "Review"
+        },
+        {
+          "value": "discharge",
+          "label": "Discharge"
+        },
+        {
+          "value": "transfer",
+          "label": "Transfer"
+        }
+      ]
+    },
+    {
+      "key": "dueWindow",
+      "label": "Due window",
+      "type": "enum",
+      "options": [
+        {
+          "value": "this-shift",
+          "label": "This shift"
+        },
+        {
+          "value": "next-shift",
+          "label": "Next shift"
+        },
+        {
+          "value": "today",
+          "label": "Today"
+        },
+        {
+          "value": "24h",
+          "label": "Within 24 hours"
+        }
+      ]
+    },
+    {
+      "key": "confidentialityNote",
+      "label": "Handling",
+      "type": "enum",
+      "hint": "Printed as a banner on every page of this task's PDF.",
+      "options": [
+        {
+          "value": "internal",
+          "label": "Internal use only"
+        },
+        {
+          "value": "confidential",
+          "label": "Confidential \u2014 patient identifiable"
+        }
+      ]
+    }
+  ],
+  "projectFields": [
+    {
+      "key": "wardCode",
+      "label": "Ward code",
+      "type": "string",
+      "max": 20
+    },
+    {
+      "key": "speciality",
+      "label": "Speciality",
+      "type": "string",
+      "max": 60
+    },
+    {
+      "key": "chargeNurse",
+      "label": "Charge nurse",
+      "type": "string",
+      "max": 60
+    },
+    {
+      "key": "beds",
+      "label": "Beds",
+      "type": "number",
+      "min": 0,
+      "max": 500
+    }
+  ],
+  "pages": [
+    {
+      "id": "wards",
+      "label": "Wards",
+      "icon": "stethoscope",
+      "kind": "group",
+      "groupBy": "ward",
+      "emptyLabel": "No ward set",
+      "description": "Every task, grouped by the ward it belongs to."
+    },
+    {
+      "id": "handover",
+      "label": "Shift handover",
+      "icon": "clipboard",
+      "kind": "group",
+      "groupBy": "dueWindow",
+      "emptyLabel": "No window set",
+      "description": "What is outstanding, grouped by when it is due."
+    }
+  ],
+  "seedTemplates": [
+    {
+      "name": "Observations round",
+      "title": "Obs: ",
+      "description": "Vitals, escalation threshold, who to call."
+    },
+    {
+      "name": "Medication round",
+      "title": "Meds: ",
+      "description": "Chart checked, allergies checked, second signature."
+    },
+    {
+      "name": "Discharge checklist",
+      "title": "Discharge: ",
+      "description": "Summary, medicines, transport, follow-up."
+    }
+  ]
+}
