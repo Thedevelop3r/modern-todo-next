@@ -16,6 +16,9 @@ node_modules
 # several gigabytes of upload per build.
 services
 
+# The desktop installer is a separate Rust program that never runs in a container.
+installer
+
 # Secrets
 .env
 .env*.local

@@ -435,6 +435,15 @@ cargo test --manifest-path services/pdf/Cargo.toml
 The whole application — pages and API — is then on `http://localhost:3000`
 (set `PORT` to change it).
 
+## Desktop installer
+
+For people who just want to use Modern Todo on their own computer: `installer/` is a
+small Rust GUI program, shipped as `installer.exe` for Windows and `installer.deb` for Linux.
+It needs no Docker and no administrator rights. It downloads Node.js, MongoDB and `main`
+into one folder, builds the app there, and fetches the PDF renderer prebuilt by
+`.github/workflows/pdf-renderer.yml`. From then on, one window opens, updates, closes and
+uninstalls Modern Todo. See [installer/README.md](installer/README.md).
+
 ## Docker & compose
 
 Three containers, each from its own image:

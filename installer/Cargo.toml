@@ -1,0 +1,63 @@
+[package]
+name = "modern-todo-installer"
+version = "1.0.0"
+edition = "2024"
+description = "Installs, updates, opens and uninstalls Modern Todo"
+license = "MIT"
+authors = ["Bilal Arain"]
+repository = "https://github.com/Thedevelop3r/modern-todo-next"
+publish = false
+
+[[bin]]
+name = "todo"
+path = "src/main.rs"
+
+[dependencies]
+# glow (OpenGL) only: wgpu would triple the binary for a window of buttons.
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+rfd = "0.17"
+# rustls, not native-tls: no OpenSSL to link when cross-compiling for Windows.
+ureq = { version = "3", default-features = false, features = ["rustls", "json", "gzip"] }
+flate2 = "1"
+tar = "0.4"
+zip = { version = "8", default-features = false, features = ["deflate"] }
+sha2 = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+getrandom = "0.4"
+open = "5"
+dirs = "7"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+# `cargo deb` - the Linux package. It installs the installer itself; the
+# program copies itself into the folder the user picks, like on Windows.
+[package.metadata.deb]
+name = "modern-todo-installer"
+maintainer = "Bilal Arain <bilalarain444@gmail.com>"
+section = "utils"
+priority = "optional"
+# eframe loads the GL and windowing libraries at runtime, so dpkg-shlibdeps
+# cannot see them. libcurl and OpenSSL are what the downloaded mongod links to.
+depends = "$auto, libgl1, libxkbcommon0, libcurl4t64 | libcurl4, libssl3t64 | libssl3"
+recommends = "libwayland-client0, libx11-6"
+extended-description = """\
+A guided controller for Modern Todo: it downloads Node.js, MongoDB and the \
+application into one folder, builds it, and lets you open, update, close and \
+uninstall it without touching a terminal. No Docker, nothing system-wide."""
+assets = [
+    ["target/release/todo", "usr/bin/modern-todo-installer", "755"],
+    ["packaging/modern-todo-installer.desktop", "usr/share/applications/", "644"],
+    ["packaging/modern-todo.svg", "usr/share/icons/hicolor/scalable/apps/modern-todo.svg", "644"],
+]

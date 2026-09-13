@@ -106,7 +106,9 @@ async function main() {
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-  httpServer.listen(port, () => {
+  // LISTEN_HOST unset listens on every interface, which a container needs. The
+  // desktop installer sets 127.0.0.1 so the app is not reachable from the network.
+  httpServer.listen(port, process.env.LISTEN_HOST || undefined, () => {
     Tools.Fancy.Display(`Server listening on http://${hostname}:${port}`);
   });
 }

@@ -1,0 +1,89 @@
+# Prebuilds the PDF renderer for the desktop installer, which cannot expect a
+# Rust toolchain on the user's computer.
+#
+# Each build is a release tagged pdf-<first 12 characters of the git tree id of
+# services/pdf>. The tree id changes exactly when something under services/pdf
+# does, so the installer can tell from any commit which release it needs, and a
+# push that does not touch the renderer builds nothing.
+name: PDF renderer
+
+on:
+  push:
+    branches: [main]
+    paths: ["services/pdf/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tree.outputs.tag }}
+      exists: ${{ steps.tree.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tree
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="pdf-$(git rev-parse HEAD:services/pdf | cut -c1-12)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: tag
+    if: needs.tag.outputs.exists != 'true'
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            binary: modern-todo-pdf.exe
+            asset: modern-todo-pdf-windows-x64.exe
+            # Static C runtime: no Visual C++ Redistributable needed on the user's PC.
+            rustflags: -C target-feature=+crt-static
+          - os: ubuntu-22.04
+            binary: modern-todo-pdf
+            asset: modern-todo-pdf-linux-x64
+            rustflags: ""
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: services/pdf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: services/pdf
+      - run: cargo build --release --locked
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+      - run: cp "target/release/${{ matrix.binary }}" "${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: services/pdf/${{ matrix.asset }}
+
+  release:
+    needs: [tag, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: PDF renderer ${{ needs.tag.outputs.tag }}
+          body: Prebuilt PDF renderer for the Modern Todo installer, from services/pdf at ${{ github.sha }}.
+          files: |
+            modern-todo-pdf-windows-x64.exe
+            modern-todo-pdf-linux-x64
