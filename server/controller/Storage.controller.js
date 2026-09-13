@@ -105,6 +105,9 @@ class Storage {
       fileCount: row?.count || 0,
       caps: PER_FILE_CAPS[storage.perFileTier || "base"],
       tiers: Object.values(TIERS),
+      // Whether PUT /quota/tier will accept a change, so the client can render
+      // the plan as read-only rather than offering a control that 403s.
+      selfServeTiers: process.env.ALLOW_SELF_SERVE_TIERS === "true",
     };
   }
 

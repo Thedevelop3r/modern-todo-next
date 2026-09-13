@@ -150,22 +150,30 @@ const updateTodoSchema = z
   })
   .strip();
 
-const bulkSchema = z.object({
-  ids: z.array(z.string().min(1)).min(1, "Select at least one todo").max(200),
-  action: z.enum([
-    "status",
-    "priority",
-    "tag",
-    "untag",
-    "pin",
-    "unpin",
-    "archive",
-    "unarchive",
-    "delete",
-    "project",
-  ]),
-  value: z.any().optional(),
-});
+const bulkIds = z.array(z.string().min(1)).min(1, "Select at least one todo").max(200);
+
+/**
+ * A bulk action and its value, validated together.
+ *
+ * `value` cannot be `z.any()`: it is written straight into `$set`, and
+ * `updateMany` does not run schema validators, so an unchecked value here put
+ * arbitrary strings into the status and priority enums - invisible to every
+ * filter and fatal to the board, which indexes a fixed map by status.
+ * Discriminating on the action is what ties each value to the field it lands in.
+ */
+const bulkSchema = z.discriminatedUnion("action", [
+  z.object({ ids: bulkIds, action: z.literal("status"), value: z.enum(STATUS) }),
+  z.object({ ids: bulkIds, action: z.literal("priority"), value: z.enum(PRIORITY) }),
+  z.object({ ids: bulkIds, action: z.literal("tag"), value: z.string().trim().min(1).max(24) }),
+  z.object({ ids: bulkIds, action: z.literal("untag"), value: z.string().trim().min(1).max(24) }),
+  // null is how the UI clears a project, so it is a valid value rather than absent.
+  z.object({ ids: bulkIds, action: z.literal("project"), value: z.union([objectId, z.null()]) }),
+  // The toggles carry no value at all.
+  z.object({
+    ids: bulkIds,
+    action: z.enum(["pin", "unpin", "archive", "unarchive", "delete"]),
+  }),
+]);
 
 const reorderSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(500),
@@ -184,6 +192,19 @@ const listParam = (values) =>
       const allowed = values ? parts.filter((p) => values.includes(p)) : parts;
       return allowed.length ? allowed : undefined;
     });
+
+/**
+ * A boolean that also accepts the string a form or query string would send.
+ *
+ * Not `z.coerce.boolean()`: that is JavaScript truthiness, so the string
+ * "false" arrives as `true` - which silently turned a real import into a
+ * preview, and a request to skip the duplicate check into one that ran it.
+ */
+const boolFlag = (fallback) =>
+  z
+    .union([z.boolean(), z.enum(["true", "false", "1", "0"])])
+    .default(fallback)
+    .transform((value) => value === true || value === "true" || value === "1");
 
 const boolParam = z
   .union([z.string(), z.boolean()])
@@ -282,8 +303,8 @@ const importSchema = z.object({
   format: z.enum(["json", "csv"]).default("json"),
   data: z.string().min(1, "There is nothing to import").max(2_000_000),
   /** Defaults to a preview: importing for real is an explicit second call. */
-  dryRun: z.coerce.boolean().default(true),
-  skipDuplicates: z.coerce.boolean().default(true),
+  dryRun: boolFlag(true),
+  skipDuplicates: boolFlag(true),
 });
 
 const exportQuerySchema = z.object({
@@ -295,8 +316,16 @@ const auditQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
+/**
+ * Turning 2FA on asks for the password as well as the code.
+ *
+ * Changing an authentication factor is re-authenticated, the same way turning
+ * it off is: otherwise a borrowed session can bind its own authenticator to the
+ * account and take the owner's recovery path with it.
+ */
 const twoFactorCodeSchema = z.object({
   code: z.string().trim().min(6, "Enter the 6-digit code").max(20),
+  password: z.string().min(1, "Password is required"),
 });
 
 const passwordConfirmSchema = z.object({

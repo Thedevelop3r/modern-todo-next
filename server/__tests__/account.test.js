@@ -246,10 +246,11 @@ test("logging out drops that session from the list", async () => {
 
 // --------------------------------------------------------------- 2FA ----
 
-async function enableTwoFactor(agent) {
+async function enableTwoFactor(agent, password = "password123") {
   const setup = await agent.post("/api/account/2fa/setup").expect(200);
   const code = generateCode(setup.body.secret);
-  const enabled = await agent.post("/api/account/2fa/enable").send({ code }).expect(200);
+  // Turning 2FA on is password-confirmed, exactly like turning it off.
+  const enabled = await agent.post("/api/account/2fa/enable").send({ code, password }).expect(200);
   return { secret: setup.body.secret, recoveryCodes: enabled.body.recoveryCodes };
 }
 
@@ -260,11 +261,24 @@ test("two-factor setup needs a real code, and hands back recovery codes", async 
   assert.equal(setup.body.secret.length, 32);
   assert.match(setup.body.otpauthUri, /^otpauth:\/\/totp\//);
 
-  await alice.agent.post("/api/account/2fa/enable").send({ code: "000000" }).expect(400);
+  const password = alice.credentials.password;
+
+  // A wrong code is refused...
+  await alice.agent.post("/api/account/2fa/enable").send({ code: "000000", password }).expect(400);
+  // ...and so is a right code without the password, so a borrowed session
+  // cannot bind its own authenticator to the account.
+  await alice.agent
+    .post("/api/account/2fa/enable")
+    .send({ code: generateCode(setup.body.secret) })
+    .expect(400);
+  await alice.agent
+    .post("/api/account/2fa/enable")
+    .send({ code: generateCode(setup.body.secret), password: "not-the-password" })
+    .expect(400);
 
   const enabled = await alice.agent
     .post("/api/account/2fa/enable")
-    .send({ code: generateCode(setup.body.secret) })
+    .send({ code: generateCode(setup.body.secret), password })
     .expect(200);
   assert.equal(enabled.body.recoveryCodes.length, 10);
 
@@ -276,7 +290,7 @@ test("two-factor setup needs a real code, and hands back recovery codes", async 
 
 test("login asks for the second factor and accepts a valid code", async () => {
   const alice = await makeUser(app);
-  const { secret } = await enableTwoFactor(alice.agent);
+  const { secret } = await enableTwoFactor(alice.agent, alice.credentials.password);
 
   const fresh = request.agent(app);
   const challenge = await fresh
@@ -302,7 +316,7 @@ test("login asks for the second factor and accepts a valid code", async () => {
 
 test("a recovery code works once, and disabling 2FA needs the password", async () => {
   const alice = await makeUser(app);
-  const { recoveryCodes } = await enableTwoFactor(alice.agent);
+  const { recoveryCodes } = await enableTwoFactor(alice.agent, alice.credentials.password);
   const [recovery] = recoveryCodes;
 
   const fresh = request.agent(app);

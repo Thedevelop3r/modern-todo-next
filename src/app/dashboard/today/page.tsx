@@ -67,7 +67,7 @@ export default function TodayPage() {
 
   return (
     <PageTransition className="mx-auto max-w-3xl space-y-5">
-      <div className="grid gap-5 md:grid-cols-[1fr_240px]">
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_240px]">
         <Card>
           <CardContent>
             <div className="flex items-start justify-between gap-4">

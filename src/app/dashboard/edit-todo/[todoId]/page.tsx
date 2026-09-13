@@ -15,10 +15,11 @@ import {
 import { useTodo, useUpdateTodo } from "@/hooks/useTodos";
 import { useVariant } from "@/hooks/useVariant";
 
-export default function EditTodoPage({ params }: { params: { todoId: string } }) {
+export default function EditTodoPage({ params }: { params: Promise<{ todoId: string }> }) {
   const router = useRouter();
   const toast = useToast();
-  const { todoId } = params;
+  // Route params are a promise from Next 15 onwards, unwrapped with use().
+  const { todoId } = React.use(params);
 
   const { data: todo, isLoading, isError, error } = useTodo(todoId);
   const updateTodo = useUpdateTodo();

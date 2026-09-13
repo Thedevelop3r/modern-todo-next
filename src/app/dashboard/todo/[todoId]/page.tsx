@@ -34,10 +34,11 @@ import { AttachmentsPanel } from "@/components/files";
 import { PdfPanel } from "@/components/todo/PdfPanel";
 import { subtaskProgress } from "@/lib/utils";
 
-export default function TodoDetailPage({ params }: { params: { todoId: string } }) {
+export default function TodoDetailPage({ params }: { params: Promise<{ todoId: string }> }) {
   const router = useRouter();
   const toast = useToast();
-  const { todoId } = params;
+  // Route params are a promise from Next 15 onwards, unwrapped with use().
+  const { todoId } = React.use(params);
 
   const { data: todo, isLoading, isError, error } = useTodo(todoId);
   const { data: projects } = useProjects();

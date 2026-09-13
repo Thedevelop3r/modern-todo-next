@@ -124,7 +124,7 @@ export function TodoCard({
             <Link
               href={`/dashboard/todo/${todo._id}`}
               className={cn(
-                "font-semibold leading-snug text-fg transition-colors hover:text-primary",
+                "break-words font-semibold leading-snug text-fg transition-colors hover:text-primary",
                 compact ? "text-sm" : "text-base",
                 completed && "text-fg-muted line-through decoration-fg-subtle"
               )}

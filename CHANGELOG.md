@@ -7,6 +7,177 @@ the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [2.1.0] — 2026-09-12
+
+**A correctness and hardening release.** No new features: a review of the whole
+tree ahead of this version turned up twenty-two findings, and this release is all
+of them. Four were reproduced by execution before being fixed, and each now has a
+regression test naming the bug it prevents.
+
+Nothing changes for anyone using the application normally, with three exceptions
+worth knowing about, listed under *Changed* below.
+
+### Fixed — data integrity
+
+- **PDF compression no longer stores a truncated file.** Every external tool was
+  capped at ten seconds, so `qpdf` on a large PDF was killed part-way through
+  writing its output — and the partial file was then accepted, because the code
+  checked only that an output file existed and was smaller than the input. A
+  300 MB PDF was stored as 1.4 MB of fragment, checksummed as authoritative, with
+  the original deleted. `qpdf` now runs without a timeout (the concurrency
+  semaphore bounds the load instead), its exit code is honoured — 0, or 3 for
+  warnings — and the output must end with a `%%EOF` trailer before it is allowed
+  to replace the original. A result under 2% of the input is discarded as
+  implausible whatever the tool claims.
+- **Bulk actions can no longer write past the schema enums.** `value` was
+  unvalidated and `updateMany` does not run validators, so
+  `{ action: "status", value: "anything" }` answered 200 and stored it — making
+  the record invisible to every status filter and crashing the board view, which
+  indexes a fixed map by status. The bulk schema is now a discriminated union
+  that ties each value to the field it lands in, the write runs validators, and
+  the board falls back rather than throwing on an unknown value.
+- **A todo can no longer be filed under another account's project.** `update`
+  checked ownership; `create` and the `project` bulk action did not, and both
+  persisted a stranger's `projectId`. No data ever leaked — every read is scoped
+  by owner — but the dangling cross-tenant reference is gone.
+- **Boolean flags sent as strings are read correctly.** `z.coerce.boolean()` is
+  JavaScript truthiness, so `dryRun: "false"` arrived as `true`: an import asked
+  to run silently previewed instead, and a request to skip the duplicate check
+  ran it. Both flags now accept a boolean or an explicit `"true"`/`"false"`.
+- **Rich text is capped before sanitising, not after.** Sanitising grows markup —
+  every link gains `rel` and `target` — so a document near the limit could be cut
+  through a tag and stored as broken HTML.
+- **Uploads survive a temp-directory sweep.** The scratch directory was created
+  once at boot; a tmp reaper removing it left every upload failing with ENOENT
+  until a restart.
+
+### Fixed — security
+
+- **Proxy trust is now declared, not guessed.** Without it `req.ip` was the
+  socket address, so behind a reverse proxy every client shared one rate-limit
+  bucket — ten failed logins from anyone locked out everybody. `TRUST_PROXY_HOPS`
+  states how many proxies are in front; `X-Forwarded-For` is no longer read by
+  hand anywhere, which also stops a client forging the address recorded in the
+  audit log and the session list.
+- **Zero known vulnerabilities in the dependency tree**, down from eleven (two
+  critical). Next.js 14.0.4 carried two critical advisories with no fix anywhere
+  in the 14.x line, including unauthenticated RCE in the image optimizer that
+  this application's use of `next/image` exposed — so Next moves to 15.5.25 and
+  React to 19. `bcrypt` moves to 6, which drops the `node-pre-gyp` and `tar`
+  chain entirely; `qs` and `postcss` are pinned to their patched lines.
+- **The container no longer runs as root.** It also builds with `npm ci` rather
+  than `npm install`, prunes devDependencies out of the runtime image, declares a
+  `HEALTHCHECK` against `/api/health`, and runs `node` as PID 1 so a signal
+  reaches the shutdown handlers directly and a clean stop exits 0.
+- **The Docker build context drops from ~560 MB to ~6 MB.** `.dockerignore` did
+  not exclude `services/pdf/target`, so several gigabytes of Rust build
+  artifacts were uploaded to the daemon on every build and then discarded — the
+  pdf-builder stage compiles its own. Caches, `*.tsbuildinfo` and the docs are
+  excluded too.
+- **MongoDB moves to the 8.0 LTS line and off the host network.** 5.0.2 was an
+  end-of-life release from 2021; publishing port 27017 exposed the database to
+  anything that could reach the host, when only the application ever talks to it.
+  Compose now waits for a database that answers rather than a container that
+  started.
+- **`GLIBC_TUNABLES=glibc.pthread.rseq=1` on the database service**, required to
+  run MongoDB 8.0 on Linux kernel 6.19 or newer (SERVER-121912). The image
+  otherwise leaves rseq management to tcmalloc, whose implementation violates the
+  rseq ABI; kernel 6.19 refactored rseq and broke that path, so mongod refuses to
+  start rather than crash later. Setting the tunable hands rseq to glibc, which is
+  the compliant path — MongoDB's own guard accepts it rather than being bypassed.
+  Without it, `mongo:8.0` crash-loops on a current kernel.
+- **Storage plans are no longer self-serve.** Any account could grant itself the
+  largest quota and per-file cap in one request. Off unless
+  `ALLOW_SELF_SERVE_TIERS=true`, and the quota endpoint reports which, so the UI
+  shows the current plan as text instead of a control that would be refused.
+- **The server refuses to start without a real `JWT_SECRET`** — under 32
+  characters, or still the `change-me` placeholder, is now a startup failure
+  rather than a deployment signing tokens anyone can forge.
+- **Image decoding is bounded** at 50 MP. A few hundred kilobytes of crafted PNG
+  decodes to gigabytes of bitmap at the library default, in the same process that
+  serves the pages and hosts the PDF renderer.
+- **CSV exports cannot smuggle a spreadsheet formula.** A cell opening with `=`,
+  `+`, `-` or `@` is prefixed, and the importer strips that prefix back off, so an
+  export still round-trips through it unchanged.
+- **Turning two-factor authentication on now asks for the password**, as turning
+  it off always did — otherwise a borrowed session could bind its own
+  authenticator to the account and take the owner's recovery path with it.
+- **Two unbounded per-account resources are capped**: progress streams
+  (eight per account), and a supplied upload job id that collides with a live job
+  is declined rather than replacing its registry entry and orphaning the child
+  process behind it.
+- **The editor's link dialog rejects any scheme but http, https and mailto.** The
+  server always stripped the rest on save; now a `javascript:` URL is never live
+  in the editor either.
+
+### Fixed — interface
+
+- **A long description no longer pushes the sidebar off the screen.** Two causes:
+  nothing let an unbreakable token wrap, and the form's flexible grid column had
+  no floor, so `1fr` — whose minimum is its content's min-content width — grew
+  past the viewport. Rich text now wraps (code blocks keep their own horizontal
+  scroll) and the three two-column layouts use `minmax(0,1fr)`.
+- **Long titles wrap** in cards, board cards and dialog headings, and a board
+  column can no longer be widened by one of them.
+- **Board and calendar say when they are showing only part of the set.** Both ask
+  for the whole set, but the API caps a page at 100, so beyond that they silently
+  showed a fraction.
+- **Undo after a large bulk delete works.** It searched only the newest 100 trash
+  rows while the bulk endpoint accepts 200 ids, so it could report "nothing left
+  to restore" for todos sitting in the trash intact.
+- Two effects that read state they excluded from their dependencies now derive it
+  inside the setter instead, removing both lint exceptions.
+
+### Changed
+
+- **`POST /api/todo` and `PATCH /api/todo/bulk` now answer 400** where they
+  previously answered 200: a status or priority outside the enums, and a
+  `projectId` the caller does not own. The application's own client always sent
+  valid values; a script might not have.
+- **`POST /api/account/import` with `dryRun: "false"` now actually imports.**
+  Previously it silently previewed. Check nothing relies on the old behaviour.
+- **`POST /api/account/2fa/enable` now requires `password`** alongside `code`.
+
+### Changed — configuration
+
+- `NODE_ENV` is documented in `.env.example` as load-bearing rather than
+  cosmetic: `server.js` starts Next in dev mode whenever it is not
+  `production`, so a container built as a production image still ran the dev
+  server, ignored the bundle it had just built, and served the session cookie
+  without its `Secure` flag. Compose passes `NODE_ENV` from `.env`, which
+  overrides the image's own default, so this is set there.
+- The deprecated `useNewUrlParser` and `useUnifiedTopology` connection options
+  are gone. Both have been no-ops since driver 4.0 and throw in the next major.
+
+### Added
+
+- `TRUST_PROXY_HOPS` and `ALLOW_SELF_SERVE_TIERS` environment variables, both
+  documented in `.env.example`.
+- `selfServeTiers` on `GET /api/files/quota`.
+- A `HEALTHCHECK` on the application image and a healthcheck on the database
+  service, with the application waiting for the latter.
+- `server/__tests__/regressions.test.js` — one test per finding above.
+
+### Upgrading
+
+1. Set `JWT_SECRET` to at least 32 random characters, or the server will not
+   start. Changing it signs every existing session out.
+2. Set `TRUST_PROXY_HOPS` to the number of reverse proxies in front of the app.
+   Leave it at 0 when it is reached directly.
+3. MongoDB 5.0 data files cannot be read by 8.0, and there is no in-place jump
+   across three majors. Either `mongodump` from 5.0 and restore into a fresh
+   volume, or — in development — start clean. The compose file uses a new volume
+   name (`mongo_data`), so an older volume stays untouched as a rollback. Note
+   that this cuts both ways: 8.0 cannot read data files written by 8.2 or newer
+   either, so do not point it at a volume some newer image has already used.
+4. PDFs stored by an earlier version may already be truncated; this release
+   prevents new ones but cannot repair them. Files whose bytes do not end in
+   `%%EOF` need re-uploading.
+5. Run `Storage.recompute()` (or open the Files page, which self-heals on drift)
+   for any account that uploaded a truncated PDF.
+
+---
+
 ## [2.0.0] — 2026-09-12
 
 **A todo stops being a line of text and becomes a document.**
@@ -191,5 +362,6 @@ Next.js project, pages and API served from a single port.
   accessibility pass, structured request logging with request ids, `/api/health`
   and rate limiting surfaced in the UI.
 
+[2.1.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v2.0.0
 [1.0.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v1.0-stable

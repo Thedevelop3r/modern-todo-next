@@ -34,7 +34,7 @@ function BoardCard({ todo, dragging }: { todo: Todo; dragging?: boolean }) {
         dragging && "rotate-2 shadow-lg ring-2 ring-primary"
       )}
     >
-      <p className={cn("text-sm font-medium leading-snug text-fg", todo.status === "completed" && "line-through text-fg-muted")}>
+      <p className={cn("break-words text-sm font-medium leading-snug text-fg", todo.status === "completed" && "line-through text-fg-muted")}>
         {todo.title}
       </p>
       {progress && (
@@ -76,7 +76,9 @@ function Column({ status, todos }: { status: TodoStatus; todos: Todos }) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex min-h-[240px] flex-1 flex-col rounded-xl border bg-surface-sunken/60 p-3 transition-colors",
+        // min-w-0: a flex item defaults to min-width:auto, so one long unbroken
+        // title in a card would otherwise widen the whole column.
+        "flex min-h-[240px] min-w-0 flex-1 flex-col rounded-xl border bg-surface-sunken/60 p-3 transition-colors",
         isOver ? "border-primary bg-primary-soft/40" : "border-border"
       )}
     >
@@ -113,7 +115,9 @@ export function TodoBoard({ todos, onStatusChange }: { todos: Todos; onStatusCha
 
   const columns = React.useMemo(() => {
     const grouped: Record<TodoStatus, Todos> = { pending: [], progress: [], completed: [] };
-    todos.forEach((todo) => grouped[todo.status || "pending"].push(todo));
+    // A status outside the enum must not take the whole view down with it:
+    // indexing this map with one gives undefined, and .push would throw.
+    todos.forEach((todo) => (grouped[todo.status as TodoStatus] ?? grouped.pending).push(todo));
     return grouped;
   }, [todos]);
 

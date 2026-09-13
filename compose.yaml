@@ -1,7 +1,8 @@
 services:
   mongodb:
     container_name: mongodb
-    image: mongo:5.0.2
+    # 8.0 is the current LTS line. 5.0 went end-of-life in October 2024.
+    image: mongo:8.0
     restart: unless-stopped
 
     env_file:
@@ -10,12 +11,26 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      # Required on Linux kernel 6.19 and newer (SERVER-121912). The image
+      # otherwise leaves rseq management to tcmalloc, whose implementation
+      # violates the rseq ABI - kernel 6.19 refactored rseq and broke that path,
+      # so mongod refuses to start rather than crash later. Setting this to 1
+      # hands rseq to glibc, which is the compliant path; MongoDB's own guard
+      # accepts it. Harmless on older kernels, so it is set unconditionally.
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
 
-    ports:
-      - "${MONGODB_LOCAL_PORT}:${MONGODB_DOCKER_PORT}"
-
+    # No host port. Only the app talks to mongo, over this compose network -
+    # publishing 27017 exposed the database to anything that can reach the host.
+    # For a shell: docker compose exec mongodb mongosh
     volumes:
-      - db:/data/db
+      - mongo_data:/data/db
+
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   app:
     container_name: modern-todo
@@ -24,8 +39,10 @@ services:
 
     restart: unless-stopped
 
+    # Wait for a database that answers, not merely a container that started.
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
 
     env_file:
       - .env
@@ -44,6 +61,11 @@ services:
       # listens on loopback only, so it needs no port of its own here.
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
       PDF_SERVICE_SPAWN: ${PDF_SERVICE_SPAWN:-1}
+      # How many reverse proxies sit in front of this container. 0 means the app
+      # is reached directly, so X-Forwarded-For is not trusted at all.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      # Storage plans are self-serve only where this is "true"; off until billing.
+      ALLOW_SELF_SERVE_TIERS: ${ALLOW_SELF_SERVE_TIERS:-false}
 
     stdin_open: true
     tty: true
@@ -61,4 +83,7 @@ services:
           action: rebuild
 
 volumes:
-  db:
+  # A distinct name from the 5.0-era `db` volume: MongoDB cannot read data files
+  # from a different major version in either direction, so the upgrade takes a
+  # fresh volume and any older one stays untouched as a rollback.
+  mongo_data:

@@ -1,5 +1,34 @@
+# Everything here is either rebuilt inside the image or must never enter it.
+# Keep this list honest: whatever is not excluded is uploaded to the Docker
+# daemon on every build, whether the Dockerfile uses it or not.
+
+# Rebuilt in the image
 node_modules
 .next
-.git
+/build
+/out
+
+# Rust build artifacts - several gigabytes, and the pdf-builder stage compiles
+# its own. Sending these cost minutes per build and was discarded every time.
+services/pdf/target
+
+# Secrets
 .env
+.env*.local
+*.pem
+
+# Local caches and tooling
+.git
+.vs/
+.idea/
+.vercel
+coverage
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# Documentation and assets the running image has no use for
 project-screenshots
+*.docx

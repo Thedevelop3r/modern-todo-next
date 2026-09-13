@@ -104,7 +104,14 @@ function Toolbar({ editor, profile }: { editor: Editor; profile: RichTextProfile
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
-    editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    // The server strips anything but http/https/mailto on save, so this only
+    // ever protects the author from their own paste - but a javascript: href is
+    // live in the editor until then, so it never gets set.
+    if (!/^(https?:|mailto:)/i.test(href.trim())) {
+      window.alert("A link must start with http://, https:// or mailto:");
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: href.trim() }).run();
   };
 
   return (

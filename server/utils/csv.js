@@ -1,10 +1,21 @@
 // csv.js - the small slice of RFC 4180 this app actually needs, both ways.
 
+/**
+ * A cell a spreadsheet will not execute.
+ *
+ * Excel, Sheets and LibreOffice treat a cell opening with =, +, - or @ as a
+ * formula, so a todo titled `=HYPERLINK("http://evil","Click")` would run on
+ * open. A leading apostrophe is the standard defusal - and `parseCsv` strips it
+ * back off, so an export still round-trips through our own importer.
+ */
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+
 /** Quotes a value only when it has to be quoted, doubling any inner quote. */
 function escapeCell(value) {
   if (value === null || value === undefined) return "";
   const text = value instanceof Date ? value.toISOString() : String(value);
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  const safe = FORMULA_LEAD.test(text) ? `'${text}` : text;
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 /**
@@ -75,7 +86,10 @@ function parseCsv(text) {
   const headers = headerRow.map((header) => header.trim());
   return dataRows.map((entry) =>
     headers.reduce((object, header, index) => {
-      object[header] = (entry[index] ?? "").trim();
+      const cell = (entry[index] ?? "").trim();
+      // Undo the formula guard escapeCell adds, so a value survives the round
+      // trip through our own export instead of gaining a literal apostrophe.
+      object[header] = FORMULA_LEAD.test(cell.slice(1)) && cell.startsWith("'") ? cell.slice(1) : cell;
       return object;
     }, {})
   );

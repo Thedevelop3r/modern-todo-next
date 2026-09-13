@@ -71,7 +71,9 @@ export function Modal({
                   {(title || description) && (
                     <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-6 py-4">
                       <div>
-                        {title && <Dialog.Title className="text-lg font-semibold text-fg">{title}</Dialog.Title>}
+                        {title && (
+                        <Dialog.Title className="break-words text-lg font-semibold text-fg">{title}</Dialog.Title>
+                      )}
                         {description && (
                           <Dialog.Description className="mt-1 text-sm text-fg-muted">{description}</Dialog.Description>
                         )}

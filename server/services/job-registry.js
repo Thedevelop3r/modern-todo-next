@@ -180,6 +180,11 @@ class JobRegistry extends EventEmitter {
     }
   }
 
+  /** How many progress streams this account currently holds open. */
+  subscriberCount(ownerId) {
+    return this.subscribers.get(String(ownerId))?.size || 0;
+  }
+
   subscribe(ownerId, res) {
     const key = String(ownerId);
     if (!this.subscribers.has(key)) this.subscribers.set(key, new Set());

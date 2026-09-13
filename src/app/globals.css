@@ -172,6 +172,23 @@
   outline: none;
 }
 
+/* A long unbreakable token - a URL, a path, a hash - must wrap rather than
+   widen its box. Without this it grows past the container, and in a grid whose
+   column is `1fr` (whose minimum is its content's min-content width) it pushes
+   the neighbouring column off the screen. `pre` keeps its own horizontal
+   scroll below, because wrapping code changes what the code says. */
+.prose-editor,
+.prose-content {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose-editor pre,
+.prose-content pre {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
 .prose-editor p,
 .prose-content p {
   margin: 0 0 0.65em;

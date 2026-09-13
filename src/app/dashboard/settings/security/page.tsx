@@ -89,6 +89,8 @@ export default function SecuritySettingsPage() {
 
   const [setup, setSetup] = React.useState<{ secret: string; otpauthUri: string } | null>(null);
   const [code, setCode] = React.useState("");
+  // Turning 2FA on is re-authenticated, the same as turning it off.
+  const [enablePassword, setEnablePassword] = React.useState("");
   const [recoveryCodes, setRecoveryCodes] = React.useState<string[] | null>(null);
   const [disableOpen, setDisableOpen] = React.useState(false);
   const [disablePassword, setDisablePassword] = React.useState("");
@@ -103,20 +105,25 @@ export default function SecuritySettingsPage() {
       onSuccess: (result) => {
         setSetup(result);
         setCode("");
+        setEnablePassword("");
       },
       onError: (error: Error) => toast.error("Could not start setup", { description: error.message }),
     });
 
   const finishSetup = () =>
-    enableTwoFactor.mutate(code, {
-      onSuccess: (result) => {
-        setSetup(null);
-        setCode("");
-        setRecoveryCodes(result.recoveryCodes);
-        toast.success("Two-factor authentication is on");
-      },
-      onError: (error: Error) => toast.error("That did not work", { description: error.message }),
-    });
+    enableTwoFactor.mutate(
+      { code, password: enablePassword },
+      {
+        onSuccess: (result) => {
+          setSetup(null);
+          setCode("");
+          setEnablePassword("");
+          setRecoveryCodes(result.recoveryCodes);
+          toast.success("Two-factor authentication is on");
+        },
+        onError: (error: Error) => toast.error("That did not work", { description: error.message }),
+      }
+    );
 
   const copy = (text: string, what: string) =>
     navigator.clipboard
@@ -229,11 +236,27 @@ export default function SecuritySettingsPage() {
               />
             </Field>
 
+            <Field label="Your password" htmlFor="totp-password">
+              <Input
+                id="totp-password"
+                type="password"
+                autoComplete="current-password"
+                value={enablePassword}
+                onChange={(e) => setEnablePassword(e.target.value)}
+                placeholder="Confirm it is you"
+              />
+            </Field>
+
             <div className="flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={() => setSetup(null)}>
                 Cancel
               </Button>
-              <Button size="sm" loading={enableTwoFactor.isPending} disabled={code.length < 6} onClick={finishSetup}>
+              <Button
+                size="sm"
+                loading={enableTwoFactor.isPending}
+                disabled={code.length < 6 || !enablePassword}
+                onClick={finishSetup}
+              >
                 Turn on
               </Button>
             </div>

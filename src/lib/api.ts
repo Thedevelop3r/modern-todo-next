@@ -366,10 +366,10 @@ export const api = {
   startTwoFactor: () =>
     request<{ secret: string; otpauthUri: string }>(`${API_ENDPOINT.account}/2fa/setup`, { method: "POST" }),
 
-  enableTwoFactor: (code: string) =>
+  enableTwoFactor: (input: { code: string; password: string }) =>
     request<{ message: string; recoveryCodes: string[] }>(`${API_ENDPOINT.account}/2fa/enable`, {
       method: "POST",
-      body: body({ code }),
+      body: body(input),
     }),
 
   disableTwoFactor: (password: string) =>

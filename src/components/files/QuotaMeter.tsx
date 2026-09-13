@@ -46,32 +46,54 @@ export function QuotaMeter() {
         {data.fileCount} file{data.fileCount === 1 ? "" : "s"} stored
       </p>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-fg">Plan</span>
-          <NativeSelect
-            value={data.tier}
-            onChange={(event) => change({ tier: event.target.value as StorageTier })}
-          >
-            {data.tiers.map((tier) => (
-              <option key={tier.id} value={tier.id}>
-                {tier.label} — {formatBytes(tier.quotaBytes)}
-              </option>
-            ))}
-          </NativeSelect>
-        </label>
+      {/* The plan is only changeable where the server says so - it is off until
+          billing exists, so the current plan is shown as text instead of a
+          control that would answer 403. */}
+      {data.selfServeTiers ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-fg">Plan</span>
+            <NativeSelect
+              value={data.tier}
+              onChange={(event) => change({ tier: event.target.value as StorageTier })}
+            >
+              {data.tiers.map((tier) => (
+                <option key={tier.id} value={tier.id}>
+                  {tier.label} — {formatBytes(tier.quotaBytes)}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
 
-        <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-fg">Per-file limits</span>
-          <NativeSelect
-            value={data.perFileTier}
-            onChange={(event) => change({ perFileTier: event.target.value as PerFileTier })}
-          >
-            <option value="base">Standard — 15 MB image, 100 MB video</option>
-            <option value="plus">Extended — 25 MB image, 600 MB video</option>
-          </NativeSelect>
-        </label>
-      </div>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-fg">Per-file limits</span>
+            <NativeSelect
+              value={data.perFileTier}
+              onChange={(event) => change({ perFileTier: event.target.value as PerFileTier })}
+            >
+              <option value="base">Standard — 15 MB image, 100 MB video</option>
+              <option value="plus">Extended — 25 MB image, 600 MB video</option>
+            </NativeSelect>
+          </label>
+        </div>
+      ) : (
+        <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-medium text-fg">Plan</dt>
+            <dd className="text-sm text-fg-muted">
+              {data.tiers.find((tier) => tier.id === data.tier)?.label || data.tier} —{" "}
+              {formatBytes(data.quotaBytes)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-fg">Per-file limits</dt>
+            <dd className="text-sm text-fg-muted">
+              {data.perFileTier === "plus" ? "Extended" : "Standard"} — up to{" "}
+              {formatBytes(data.caps?.video || 0)} per video
+            </dd>
+          </div>
+        </dl>
+      )}
     </div>
   );
 }
