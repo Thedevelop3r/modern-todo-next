@@ -7,7 +7,7 @@ the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [2.1.0] — 2026-09-12
+## [2.1.0] — 2026-09-13
 
 **A correctness and hardening release.** No new features: a review of the whole
 tree ahead of this version turned up twenty-two findings, and this release is all
