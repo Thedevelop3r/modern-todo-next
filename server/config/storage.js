@@ -19,20 +19,47 @@ const TIERS = {
   "25gb": { id: "25gb", label: "25 GB", quotaBytes: 25 * GB },
   "50gb": { id: "50gb", label: "50 GB", quotaBytes: 50 * GB },
   "100gb": { id: "100gb", label: "100 GB", quotaBytes: 100 * GB },
+  "250gb": { id: "250gb", label: "250 GB", quotaBytes: 250 * GB },
+  "500gb": { id: "500gb", label: "500 GB", quotaBytes: 500 * GB },
+  "1tb": { id: "1tb", label: "1 TB", quotaBytes: 1024 * GB },
 };
 
 const TIER_IDS = Object.keys(TIERS);
 
 /**
- * How large a single file may be, per kind. `plus` is the upgraded allowance;
- * it is orthogonal to the quota tier because the two are sold separately.
+ * How large a single file may be, per kind. Orthogonal to the quota tier
+ * because the two are sold separately; `base` is what every account starts on.
+ *
+ * This table is the whole definition of a per-file tier: the upload path
+ * enforces `caps`, and the Files page lists every entry with its `label` and
+ * caps as sent by GET /api/files/quota. Add, remove or resize a tier here and
+ * nothing else needs to change. PDFs are stored as the `document` kind.
+ *
+ * Uploads are streamed, but one request must still arrive within Node's
+ * default 5-minute request timeout - mind that before raising a cap further.
  */
-const PER_FILE_CAPS = {
-  base: { image: 15 * MB, video: 100 * MB, audio: 50 * MB, document: 50 * MB, pdf: 50 * MB },
-  plus: { image: 25 * MB, video: 600 * MB, audio: 100 * MB, document: 1 * GB, pdf: 1 * GB },
+const PER_FILE_TIERS = {
+  base: {
+    id: "base",
+    label: "Standard",
+    caps: { image: 15 * MB, video: 100 * MB, audio: 50 * MB, document: 50 * MB, pdf: 50 * MB },
+  },
+  plus: {
+    id: "plus",
+    label: "Extended",
+    caps: { image: 25 * MB, video: 600 * MB, audio: 100 * MB, document: 1 * GB, pdf: 1 * GB },
+  },
+  premium: {
+    id: "premium",
+    label: "Premium",
+    caps: { image: 100 * MB, video: 4 * GB, audio: 100 * MB, document: 3 * GB, pdf: 3 * GB },
+  },
 };
 
-const PER_FILE_TIER_IDS = Object.keys(PER_FILE_CAPS);
+const PER_FILE_TIER_IDS = Object.keys(PER_FILE_TIERS);
+
+/** `{ base: caps, plus: caps, ... }` - the caps alone, keyed by tier id. */
+const PER_FILE_CAPS = Object.fromEntries(PER_FILE_TIER_IDS.map((id) => [id, PER_FILE_TIERS[id].caps]));
 
 /**
  * The only media types this application stores. `kind` is derived from this
@@ -125,8 +152,24 @@ const capFor = (kind, perFileTier = "base") => {
   return table[kind] ?? table.document;
 };
 
-/** The largest single file any tier allows - busboy's hard limit. */
-const MAX_ANY_FILE = Math.max(...Object.values(PER_FILE_CAPS.plus));
+/**
+ * The largest file of any kind this tier accepts - the limit an upload is
+ * streamed against before its kind is known. Not the document cap: on
+ * Standard a video may be 100 MB while a document may only be 50 MB.
+ */
+const largestCapFor = (perFileTier = "base") =>
+  Math.max(...Object.values((PER_FILE_TIERS[perFileTier] || PER_FILE_TIERS.base).caps));
+
+/**
+ * The largest single file any tier allows - busboy's absolute ceiling. Taken
+ * over every tier rather than naming the biggest one, so a larger tier added
+ * later cannot be silently capped by it.
+ */
+const MAX_ANY_FILE = Math.max(...PER_FILE_TIER_IDS.map(largestCapFor));
+
+/** 50 MB, 2 GB - how a limit reads in an error message. */
+const formatLimit = (bytes) =>
+  bytes >= GB && bytes % GB === 0 ? `${bytes / GB} GB` : `${Math.floor(bytes / MB)} MB`;
 
 /** `image/png` -> "image", or null when we do not accept the type at all. */
 const kindForMime = (mime) =>
@@ -137,6 +180,7 @@ module.exports = {
   MB,
   TIERS,
   TIER_IDS,
+  PER_FILE_TIERS,
   PER_FILE_CAPS,
   PER_FILE_TIER_IDS,
   MIME_KIND,
@@ -147,5 +191,7 @@ module.exports = {
   MAX_ANY_FILE,
   quotaForTier,
   capFor,
+  largestCapFor,
+  formatLimit,
   kindForMime,
 };

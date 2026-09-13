@@ -7,6 +7,40 @@ the project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+**Storage tiers come from the server.** The Files page renders every plan and
+per-file tier `GET /api/files/quota` sends, so a tier is added or resized in
+`server/config/storage.js` alone. There are more of both.
+
+### Added
+
+- **More storage tiers:** 250 GB, 500 GB and 1 TB plans, and a **Premium**
+  per-file tier above Extended — 4 GB videos, 3 GB PDFs, and 100 MB images and
+  audio.
+
+### Changed
+
+- **`GET /api/files/quota` also returns `perFileTiers`** — every per-file tier
+  with its `label` and `caps` — alongside `tiers`. Per-file tiers are defined as
+  one labelled table (`PER_FILE_TIERS` in `server/config/storage.js`); the
+  frontend's tier types are plain strings, so a tier added on the server needs
+  no client change.
+- **The Files page lists the tiers the server defines.** The per-file picker
+  was two hardcoded options with stale sizes, and the read-only view guessed the
+  tier's name from its id. Both now render from `GET /api/files/quota`, show every
+  per-kind limit the account is held to, keep a tier the server no longer offers
+  visible, and confirm a change once the server has applied it.
+
+### Fixed
+
+- **A Standard account's video between 50 and 100 MB is no longer refused.** The
+  upload was streamed against the tier's *document* cap rather than its largest
+  cap, so a video the plan allowed was cut off mid-stream. The error now names
+  the limit it hit.
+
+---
+
 ## [2.1.0] — 2026-09-13
 
 **A correctness and hardening release.** No new features: a review of the whole
@@ -459,6 +493,7 @@ Next.js project, pages and API served from a single port.
   accessibility pass, structured request logging with request ids, `/api/health`
   and rate limiting surfaced in the UI.
 
+[Unreleased]: https://github.com/Thedevelop3r/modern-todo-next/compare/v2.1.0...HEAD
 [2.1.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v2.1.0
 [2.0.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v2.0.0
 [1.0.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v1.0-stable

@@ -8,7 +8,7 @@
 
 const { User, StoredFile } = require("../models");
 const { ApiError } = require("../utils/api-error");
-const { TIERS, PER_FILE_CAPS, capFor, quotaForTier } = require("../config/storage");
+const { TIERS, PER_FILE_TIERS, PER_FILE_CAPS, capFor, quotaForTier } = require("../config/storage");
 const { toObjectId } = require("../utils/objectid");
 
 /** Recompute when the counter has drifted by more than this fraction of the quota. */
@@ -103,8 +103,13 @@ class Storage {
       tier: storage.tier || "base",
       perFileTier: storage.perFileTier || "base",
       fileCount: row?.count || 0,
-      caps: PER_FILE_CAPS[storage.perFileTier || "base"],
+      // What the upload path enforces for this account right now. A stored tier
+      // that no longer exists falls back to base, exactly as capFor does.
+      caps: PER_FILE_CAPS[storage.perFileTier] || PER_FILE_CAPS.base,
+      // Every plan and per-file tier, with labels and sizes, so the client
+      // renders what the server defines instead of a list of its own.
       tiers: Object.values(TIERS),
+      perFileTiers: Object.values(PER_FILE_TIERS),
       // Whether PUT /quota/tier will accept a change, so the client can render
       // the plan as read-only rather than offering a control that 403s.
       selfServeTiers: process.env.ALLOW_SELF_SERVE_TIERS === "true",

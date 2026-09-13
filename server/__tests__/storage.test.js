@@ -4,7 +4,18 @@ const assert = require("node:assert/strict");
 const { connect, disconnect, reset, makeApp, makeUser } = require("./helpers");
 const { StorageController } = require("../controller/Storage.controller");
 const { User, StoredFile } = require("../models");
-const { quotaForTier, capFor, kindForMime, FILE_FLAGS, MAX_ANY_FILE } = require("../config/storage");
+const {
+  quotaForTier,
+  capFor,
+  kindForMime,
+  FILE_FLAGS,
+  MAX_ANY_FILE,
+  TIERS,
+  PER_FILE_TIERS,
+  PER_FILE_CAPS,
+  largestCapFor,
+  formatLimit,
+} = require("../config/storage");
 const { runStorageSweep } = require("../services/storage-sweep");
 
 let app;
@@ -40,7 +51,37 @@ test("the storage table answers quotas, caps and kinds", () => {
   assert.equal(kindForMime("text/html"), null, "an unlisted type has no kind");
   assert.equal(kindForMime(undefined), null);
 
-  assert.equal(MAX_ANY_FILE, 1024 ** 3, "busboy's hard limit is the largest plus cap");
+  const everyCap = Object.values(PER_FILE_TIERS).flatMap((tier) => Object.values(tier.caps));
+  assert.equal(MAX_ANY_FILE, Math.max(...everyCap), "busboy's hard limit is the largest cap of any tier");
+});
+
+test("every tier carries what the client needs to render it", () => {
+  for (const [id, tier] of Object.entries(TIERS)) {
+    assert.equal(tier.id, id);
+    assert.ok(tier.label, `${id} has a label`);
+    assert.ok(tier.quotaBytes > 0, `${id} has a quota`);
+  }
+  assert.equal(quotaForTier("1tb"), 1024 ** 4);
+
+  for (const [id, tier] of Object.entries(PER_FILE_TIERS)) {
+    assert.equal(tier.id, id);
+    assert.ok(tier.label, `${id} has a label`);
+    for (const kind of ["image", "video", "audio", "document", "pdf"]) {
+      assert.ok(tier.caps[kind] > 0, `${id} caps ${kind}`);
+    }
+    assert.deepEqual(PER_FILE_CAPS[id], tier.caps, "the caps table is derived from the tier table");
+  }
+});
+
+test("an upload is streamed against the tier's largest cap, not its document cap", () => {
+  // Standard allows a 100 MB video but only a 50 MB document. Holding the stream
+  // to the document cap cut off videos the plan allowed.
+  assert.equal(largestCapFor("base"), 100 * 1024 ** 2);
+  assert.ok(largestCapFor("base") > capFor("document", "base"));
+  assert.equal(largestCapFor("nonsense"), largestCapFor("base"), "an unknown tier falls back to base");
+
+  assert.equal(formatLimit(50 * 1024 ** 2), "50 MB");
+  assert.equal(formatLimit(2 * 1024 ** 3), "2 GB");
 });
 
 test("the file flags are distinct single bits", () => {
@@ -59,6 +100,11 @@ test("a new account starts on the free tier with nothing used", async () => {
   assert.equal(summary.quotaBytes, 1024 ** 3);
   assert.equal(summary.tier, "base");
   assert.equal(summary.fileCount, 0);
+
+  // The client renders these lists as sent, so they must be complete.
+  assert.deepEqual(summary.tiers.map((tier) => tier.id), Object.keys(TIERS));
+  assert.deepEqual(summary.perFileTiers.map((tier) => tier.id), Object.keys(PER_FILE_TIERS));
+  assert.deepEqual(summary.caps, PER_FILE_TIERS.base.caps);
 });
 
 test("reserve claims space and refuses once the quota is gone", async () => {
@@ -198,7 +244,7 @@ test("an unknown tier is rejected", async () => {
   const userId = await idOf(agent);
 
   await assert.rejects(
-    () => StorageController.setTier(userId, { tier: "1tb" }),
+    () => StorageController.setTier(userId, { tier: "nonsense-tier" }),
     (error) => error.statusCode === 400
   );
   await assert.rejects(

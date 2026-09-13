@@ -247,8 +247,19 @@ type TagCount = { name: string; count: number };
 
 type FileKind = "image" | "video" | "audio" | "document" | "pdf";
 type FileScopeKind = "todo" | "project" | "template" | "user" | "variant";
-type StorageTier = "base" | "10gb" | "25gb" | "50gb" | "100gb";
-type PerFileTier = "base" | "plus";
+/**
+ * Tier ids are whatever server/config/storage.js defines. The client never
+ * lists them itself - it renders `tiers` and `perFileTiers` from the quota
+ * response - so adding a tier on the server needs no change here.
+ */
+type StorageTier = string;
+type PerFileTier = string;
+
+/** One storage plan, as the server defines it. */
+type StorageTierInfo = { id: StorageTier; label: string; quotaBytes: number };
+
+/** One per-file tier: the largest file of each kind it accepts. */
+type PerFileTierInfo = { id: PerFileTier; label: string; caps: Record<FileKind, number> };
 
 /** One file in the object store. The bytes live in GridFS; this is the record. */
 type StoredFile = {
@@ -279,8 +290,10 @@ type StorageSummary = {
   tier: StorageTier;
   perFileTier: PerFileTier;
   fileCount: number;
+  /** What uploads are held to on this account right now. */
   caps: Record<FileKind, number>;
-  tiers: Array<{ id: StorageTier; label: string; quotaBytes: number }>;
+  tiers: StorageTierInfo[];
+  perFileTiers: PerFileTierInfo[];
   /** Whether the plan can be changed from the UI - false until billing exists. */
   selfServeTiers: boolean;
 };

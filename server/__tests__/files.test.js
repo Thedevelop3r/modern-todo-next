@@ -346,11 +346,20 @@ test("the tier endpoint moves the quota and the caps", async () => {
   assert.equal(res.body.tier, "25gb");
   assert.equal(res.body.quotaBytes, 25 * 1024 ** 3);
   assert.equal(res.body.caps.video, 600 * 1024 ** 2);
+
+  // A tier added on the server is accepted and reflected without a client list.
+  const premium = await agent.put("/api/files/quota/tier").send({ tier: "1tb", perFileTier: "premium" }).expect(200);
+  assert.equal(premium.body.quotaBytes, 1024 ** 4);
+  assert.equal(premium.body.caps.video, 4 * 1024 ** 3);
+  const listed = premium.body.perFileTiers.find((tier) => tier.id === "premium");
+  assert.equal(listed.label, "Premium");
+  assert.deepEqual(listed.caps, premium.body.caps);
 });
 
 test("an unknown tier is rejected by validation", async () => {
   const { agent } = await makeUser(app);
-  await agent.put("/api/files/quota/tier").send({ tier: "1tb" }).expect(400);
+  await agent.put("/api/files/quota/tier").send({ tier: "nonsense-tier" }).expect(400);
+  await agent.put("/api/files/quota/tier").send({ perFileTier: "nonsense-tier" }).expect(400);
 });
 
 test("changing the plan is refused unless self-serve tiers are switched on", async () => {
@@ -371,6 +380,23 @@ test("changing the plan is refused unless self-serve tiers are switched on", asy
   } finally {
     process.env.ALLOW_SELF_SERVE_TIERS = previous;
   }
+});
+
+test("a Standard video over the document cap but within the video cap is accepted", async () => {
+  const { agent } = await makeUser(app);
+
+  // 60 MB: over Standard's 50 MB document cap, under its 100 MB video cap. The
+  // upload used to be streamed against the document cap and cut off here.
+  const header = Buffer.concat([
+    Buffer.from([0x00, 0x00, 0x00, 0x18]),
+    Buffer.from("ftypmp42", "latin1"),
+    Buffer.alloc(4),
+    Buffer.from("mp42isom", "latin1"),
+  ]);
+  const video = Buffer.concat([header, Buffer.alloc(60 * 1024 ** 2)]);
+
+  const res = await upload(agent, video, "clip.mp4").expect(201);
+  assert.equal(res.body.file.kind, "video");
 });
 
 test("a bigger per-file tier lets a previously refused file through", async () => {
