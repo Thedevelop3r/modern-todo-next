@@ -37,8 +37,9 @@ const NEXT_STATUS: Record<TodoStatus, TodoStatus> = {
 };
 
 /** A single project: its todos plus roll-ups scoped to it. */
-export default function ProjectPage({ params }: { params: { projectId: string } }) {
-  const { projectId } = params;
+export default function ProjectPage({ params }: { params: Promise<{ projectId: string }> }) {
+  // Route params are a promise from Next 15 onwards, unwrapped with use().
+  const { projectId } = React.use(params);
   const router = useRouter();
   const toast = useToast();
 

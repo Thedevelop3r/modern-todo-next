@@ -40,7 +40,7 @@ export function useKeyboardShortcuts() {
   const toast = useToast();
   const { setCommandOpen, setShortcutsOpen, clearSelection, popUndo } = useUiStore();
   const pendingG = React.useRef(false);
-  const gTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const gTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

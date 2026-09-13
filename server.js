@@ -24,10 +24,31 @@ const port = parseInt(process.env.PORT || "3000", 10);
 const nextApp = next({ dev, hostname, port });
 const nextHandler = nextApp.getRequestHandler();
 
+/**
+ * Refuse to start without a real signing secret.
+ *
+ * Every session cookie is signed with this. Unset, the server would start and
+ * fail only at the first login; left at the placeholder from .env.example it
+ * would run perfectly well while signing tokens anyone can forge. The PDF
+ * renderer already refuses to start on a weak key - this is the same rule.
+ */
+function assertSecrets() {
+  const secret = process.env.JWT_SECRET || "";
+  if (secret.length < 32 || secret.startsWith("change-me")) {
+    Tools.Fancy.DisplayError(
+      "JWT_SECRET must be set to a random value of at least 32 characters.",
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('base64url'))\""
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
   Tools.Fancy.Display("Starting application");
   console.log("environment:", dev ? "development" : "production");
   console.log("port:", port);
+
+  assertSecrets();
 
   const dbConnection = new DatabaseConnection();
   await dbConnection.connect();
@@ -47,6 +68,22 @@ async function main() {
 
   const server = express();
   server.disable("x-powered-by");
+
+  /**
+   * How many reverse proxies sit in front of this process.
+   *
+   * Without this, `req.ip` is the socket address - which behind a proxy is the
+   * proxy, so every client shares one rate-limit bucket and one person's failed
+   * logins lock out everybody. A hop count rather than `true`: trusting the
+   * whole X-Forwarded-For chain lets a client forge the address that lands in
+   * the rate limiter and the audit log.
+   */
+  const proxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+  if (proxyHops > 0) {
+    server.set("trust proxy", proxyHops);
+    apiApp.set("trust proxy", proxyHops);
+    console.log("trust proxy hops:", proxyHops);
+  }
 
   // The API. Mounted first so /api/* never reaches the Next.js handler.
   server.use("/api", apiApp);

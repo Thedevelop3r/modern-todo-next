@@ -20,6 +20,21 @@ const { jobRegistry } = require("./job-registry");
 const MAX_CONCURRENT_TRANSCODES = Number(process.env.MAX_CONCURRENT_TRANSCODES) || 2;
 const FFMPEG_THREADS = Number(process.env.FFMPEG_THREADS) || 2;
 
+/**
+ * A "compressed" file below this fraction of the original is treated as
+ * truncated rather than well compressed - only applied above
+ * MIN_RATIO_CHECK_BYTES, because tiny files legitimately compress very hard.
+ */
+const MIN_PLAUSIBLE_RATIO = 0.02;
+const MIN_RATIO_CHECK_BYTES = 1024 * 1024;
+
+/**
+ * The largest image we will decode - 50 MP, comfortably above any camera or
+ * screenshot and far below what it takes to exhaust the container. A bigger
+ * image is stored as uploaded rather than compressed.
+ */
+const MAX_INPUT_PIXELS = 50_000_000;
+
 let running = 0;
 const waiting = [];
 
@@ -42,12 +57,36 @@ function release() {
 
 let capabilities = null;
 
-const run = (command, args) =>
+/**
+ * Run a tool and report what happened.
+ *
+ * The outcome is deliberately not collapsed to "stdout or null": a tool killed
+ * by the timeout leaves a *partially written output file* behind, and a caller
+ * that cannot tell that from success will happily store the fragment. See
+ * `compressPdf`, where that mistake cost a 300 MB PDF.
+ *
+ * `timeout: 0` means no limit - for anything whose runtime scales with the file,
+ * where a fixed ceiling is the bug rather than the safeguard.
+ */
+const run = (command, args, { timeout = 10_000 } = {}) =>
   new Promise((resolve) => {
-    execFile(command, args, { timeout: 10_000, maxBuffer: 1 << 22 }, (error, stdout) =>
-      resolve(error ? null : stdout)
+    execFile(command, args, { timeout, maxBuffer: 1 << 22 }, (error, stdout) =>
+      resolve({
+        ok: !error,
+        stdout: stdout || "",
+        code: typeof error?.code === "number" ? error.code : null,
+        // execFile sets both when it kills the child for exceeding `timeout`.
+        killed: Boolean(error?.killed) || Boolean(error?.signal),
+        signal: error?.signal || null,
+      })
     );
   });
+
+/** Just the stdout, for the probes that only care whether a tool answered. */
+const runForOutput = async (command, args, options) => {
+  const result = await run(command, args, options);
+  return result.ok ? result.stdout : null;
+};
 
 /**
  * What this machine can actually do, probed once.
@@ -59,7 +98,10 @@ const run = (command, args) =>
 async function detect() {
   if (capabilities) return capabilities;
 
-  const [encoders, qpdf] = await Promise.all([run("ffmpeg", ["-hide_banner", "-encoders"]), run("qpdf", ["--version"])]);
+  const [encoders, qpdf] = await Promise.all([
+    runForOutput("ffmpeg", ["-hide_banner", "-encoders"]),
+    runForOutput("qpdf", ["--version"]),
+  ]);
   const has = (name) => Boolean(encoders && new RegExp(`\\b${name}\\b`).test(encoders));
 
   capabilities = {
@@ -81,7 +123,7 @@ const resetCapabilities = () => {
 
 /** Media duration in seconds, which is what turns ffmpeg's output into a percentage. */
 async function probeDuration(file) {
-  const out = await run("ffprobe", [
+  const out = await runForOutput("ffprobe", [
     "-v", "error",
     "-show_entries", "format=duration",
     "-of", "default=noprint_wrappers=1:nokey=1",
@@ -159,7 +201,10 @@ async function compressImage({ input, output, jobId }) {
   // indeterminate rather than pretending to measure something.
   jobRegistry.update(jobId, { phase: "compress", fraction: 0, determinate: false });
 
-  await sharp(input, { failOn: "none" })
+  // limitInputPixels matters more than the byte cap: a few hundred KB of
+  // crafted PNG decodes to gigabytes of bitmap at sharp's ~268 MP default, and
+  // this process also serves the pages and hosts the PDF renderer.
+  await sharp(input, { failOn: "none", limitInputPixels: MAX_INPUT_PIXELS, sequentialRead: true })
     // Honour the EXIF orientation, then drop the metadata - it can carry GPS.
     .rotate()
     .resize({ width: 2560, height: 2560, fit: "inside", withoutEnlargement: true })
@@ -234,23 +279,56 @@ async function compressPdf({ input, output, jobId }) {
   // qpdf has no progress output either.
   jobRegistry.update(jobId, { phase: "compress", fraction: 0, determinate: false });
 
-  const result = await run("qpdf", [
-    "--object-streams=generate",
-    "--recompress-flate",
-    "--compression-level=9",
-    input,
-    output,
-  ]);
-  // qpdf answers 3 on warnings but still writes a valid file, so the output
-  // file is the thing to check, not the exit code.
-  try {
-    await fsp.access(output);
-  } catch {
-    return null;
-  }
-  void result;
+  // No timeout: qpdf's runtime scales with the file, and a large PDF takes
+  // minutes. A fixed ceiling does not abort the work safely - it kills qpdf
+  // mid-write and leaves a truncated file that looks like a great compression
+  // ratio. The concurrency semaphore in `compress` is what bounds the load.
+  const result = await run(
+    "qpdf",
+    ["--object-streams=generate", "--recompress-flate", "--compression-level=9", input, output],
+    { timeout: 0 }
+  );
+
+  const discard = async (note) => {
+    await fsp.unlink(output).catch(() => {});
+    return { failed: note };
+  };
+
+  // Killed by a signal means the output is however far it got - never usable.
+  if (result.killed) return discard(`qpdf was killed (${result.signal || "signal"})`);
+  // qpdf answers 0 on success and 3 on warnings, having still written a valid
+  // file. Anything else is a real failure, whatever landed on disk.
+  if (!result.ok && result.code !== 3) return discard(`qpdf exited with ${result.code ?? "no code"}`);
+
+  // The exit code is necessary but not sufficient: verify the bytes are a
+  // complete PDF before we agree to store them in place of the original.
+  if (!(await endsWithPdfTrailer(output))) return discard("qpdf output is not a complete PDF");
 
   return { mime: "application/pdf", codec: "qpdf/objstreams" };
+}
+
+/**
+ * Is this file a whole PDF?
+ *
+ * A complete PDF ends with `%%EOF`, possibly followed by whitespace. Reading
+ * the last kilobyte is the cheapest check that separates "compressed well"
+ * from "cut off part way through", which byte size alone cannot do.
+ */
+async function endsWithPdfTrailer(file) {
+  let handle;
+  try {
+    handle = await fsp.open(file, "r");
+    const { size } = await handle.stat();
+    if (size < 32) return false;
+    const length = Math.min(1024, size);
+    const tail = Buffer.alloc(length);
+    await handle.read(tail, 0, length, size - length);
+    return tail.toString("latin1").trimEnd().endsWith("%%EOF");
+  } catch {
+    return false;
+  } finally {
+    await handle?.close().catch(() => {});
+  }
 }
 
 compressPdf.outputMime = "application/pdf";
@@ -285,6 +363,9 @@ async function compress({ input, kind, jobId, tmpDir }) {
   try {
     const result = await compressor({ input, output, jobId });
     if (!result) return { path: input, applied: false, note: `no ${kind} compressor available on this host` };
+    // The compressor ran and rejected its own output - it has already cleaned
+    // up, and the original is what gets stored.
+    if (result.failed) return { path: input, applied: false, note: `compression failed: ${result.failed}` };
 
     const [before, after] = await Promise.all([fsp.stat(input), fsp.stat(output)]);
     if (after.size >= before.size) {
@@ -292,6 +373,17 @@ async function compress({ input, kind, jobId, tmpDir }) {
       // already-optimised media. Keep what the user gave us.
       await fsp.unlink(output).catch(() => {});
       return { path: input, applied: false, note: "re-encoding would have made it larger" };
+    }
+    // A ratio this good is not compression, it is a truncated file. Real codecs
+    // do reach it on synthetic input, so this is a backstop behind each
+    // compressor's own integrity check rather than the primary defence.
+    if (before.size >= MIN_RATIO_CHECK_BYTES && after.size / before.size < MIN_PLAUSIBLE_RATIO) {
+      await fsp.unlink(output).catch(() => {});
+      return {
+        path: input,
+        applied: false,
+        note: `compressed output was implausibly small (${((after.size / before.size) * 100).toFixed(1)}%) and was discarded`,
+      };
     }
 
     jobRegistry.update(jobId, { phase: "compress", fraction: 1, determinate: true });
@@ -305,4 +397,13 @@ async function compress({ input, kind, jobId, tmpDir }) {
   }
 }
 
-module.exports = { compress, detect, resetCapabilities, probeDuration, MAX_CONCURRENT_TRANSCODES };
+module.exports = {
+  compress,
+  detect,
+  resetCapabilities,
+  probeDuration,
+  MAX_CONCURRENT_TRANSCODES,
+  // Exported for the tests that cover the integrity checks directly.
+  endsWithPdfTrailer,
+  MIN_PLAUSIBLE_RATIO,
+};

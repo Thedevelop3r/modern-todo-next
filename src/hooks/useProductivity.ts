@@ -129,22 +129,31 @@ export function usePomodoro(onPhaseEnd?: (phase: PomodoroPhase) => void) {
     return () => clearInterval(timer);
   }, [running]);
 
-  // Roll over to the next phase when the deadline passes.
+  // Roll over to the next phase when the deadline passes. The next state is
+  // derived inside the setter from whatever the current state is, so this reads
+  // nothing from the closure and needs no dependency exception.
   React.useEffect(() => {
     if (!running || secondsLeft > 0) return;
 
-    const finished = state.phase;
-    const nextPhase: PomodoroPhase = finished === "focus" ? "break" : "focus";
+    let finished: PomodoroPhase | null = null;
 
-    persist({
-      phase: nextPhase,
-      endsAt: null,
-      remaining: POMODORO_DURATIONS[nextPhase],
-      completed: state.completed + (finished === "focus" ? 1 : 0),
+    setState((current) => {
+      // Already rolled over on an earlier pass.
+      if (current.endsAt === null) return current;
+
+      finished = current.phase;
+      const nextPhase: PomodoroPhase = current.phase === "focus" ? "break" : "focus";
+      const next: PomodoroState = {
+        phase: nextPhase,
+        endsAt: null,
+        remaining: POMODORO_DURATIONS[nextPhase],
+        completed: current.completed + (current.phase === "focus" ? 1 : 0),
+      };
+      writeStore(POMODORO_KEY, next);
+      return next;
     });
 
-    endHandler.current?.(finished);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (finished) endHandler.current?.(finished);
   }, [running, secondsLeft]);
 
   const start = () => persist({ ...state, endsAt: Date.now() + state.remaining * 1000 });

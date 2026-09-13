@@ -11,7 +11,9 @@ class DatabaseConnection {
     this.connection = null;
   }
   async connect() {
-    this.connection = await mongoose.connect(MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });
+    // No useNewUrlParser / useUnifiedTopology: both have been no-ops since
+    // driver 4.0 and are removed in the next major, where passing them throws.
+    this.connection = await mongoose.connect(MONGO_URL);
     return this.connection;
   }
   async disconnect() {

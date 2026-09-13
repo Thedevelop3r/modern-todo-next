@@ -31,7 +31,7 @@ test("the default theme exists, and an unknown id falls back to it", () => {
 
 /**
  * The gallery would offer a theme that recolours nothing if a seed were added
- * without re-running `npm run themes`, so the generated CSS is checked here
+ * without re-running `yarn themes`, so the generated CSS is checked here
  * rather than trusted.
  */
 test("every theme has a light and a dark block in the generated CSS", () => {

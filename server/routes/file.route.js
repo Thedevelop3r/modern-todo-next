@@ -13,6 +13,7 @@ const { ActivityController } = require("../controller");
 const { storageTierSchema } = require("../validation/schemas");
 const { validate } = require("../middleware");
 const { jobRegistry } = require("../services/job-registry");
+const { ApiError } = require("../utils/api-error");
 
 // ------------------------------------------------------------ storage ----
 
@@ -23,10 +24,21 @@ router.get(
   })
 );
 
+/**
+ * Changing the storage plan.
+ *
+ * Billing is not wired up (see stripe-integration.txt), so until a payment
+ * check exists this is off by default: otherwise any account can grant itself
+ * the largest quota and per-file cap in one request. Set
+ * ALLOW_SELF_SERVE_TIERS=true to restore the development behaviour.
+ */
 router.put(
   "/quota/tier",
   validate(storageTierSchema),
   asyncTryCatchWrapper(async (req, res) => {
+    if (process.env.ALLOW_SELF_SERVE_TIERS !== "true") {
+      throw ApiError.forbidden("Storage plans cannot be changed from here yet");
+    }
     res.status(200).json(await StorageController.setTier(req.user._id, req.body));
   })
 );
@@ -42,7 +54,17 @@ router.put(
  * WebSocket because nothing travels client-to-server here, and a second server
  * attached to the http listener would buy nothing.
  */
+/** A tab needs one stream; this is generous for several tabs and bounds the rest. */
+const MAX_EVENT_STREAMS_PER_USER = 8;
+
 router.get("/events", (req, res) => {
+  // Each stream pins a response object and a heartbeat timer until the socket
+  // closes, so the count per account is capped rather than open-ended.
+  if (jobRegistry.subscriberCount(req.user._id) >= MAX_EVENT_STREAMS_PER_USER) {
+    res.status(429).json({ message: "Too many open progress streams", requestId: req.id });
+    return;
+  }
+
   res.status(200).set({
     "Content-Type": "text/event-stream",
     // no-transform matters as much as no-cache: a proxy that "helpfully"
@@ -89,8 +111,12 @@ router.post(
     // The client may name the job, so it can match progress events to its own
     // row before the response arrives - the id it sends is only ever used to
     // address a job inside that user's own stream, never to look anything up.
+    // A collision would replace the live job's registry entry, losing the
+    // handle used to kill its child process on shutdown - so an id already in
+    // flight is declined and we name the job ourselves.
     const supplied = req.get("X-Job-Id");
-    const jobId = supplied && UUID.test(supplied) ? supplied : crypto.randomUUID();
+    const jobId =
+      supplied && UUID.test(supplied) && !jobRegistry.get(supplied) ? supplied : crypto.randomUUID();
 
     const file = await FileController.create({ req, user: req.user, jobId });
     res.status(201).json({ jobId, file });

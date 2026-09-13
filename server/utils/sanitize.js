@@ -160,7 +160,14 @@ function textToHtml(text) {
 function resolveRichText({ html, text, inline = false, maxText = 40000, maxHtml = 40000 }) {
   // The editor sent markup: it is authoritative, and the text follows from it.
   if (html !== undefined && html !== null && html !== "") {
-    const clean = (inline ? sanitizeInline : sanitizeRich)(html).slice(0, maxHtml);
+    const sanitize = inline ? sanitizeInline : sanitizeRich;
+    // Cap the input first. Slicing *sanitized* markup can cut a tag or an
+    // attribute in half - and sanitizing grows it (every <a> gains rel and
+    // target), so the cap is reachable from input that was within the limit.
+    let clean = sanitize(String(html).slice(0, maxHtml));
+    // Still over? Then cut and re-sanitize, so whatever the cut damaged is
+    // repaired rather than stored broken.
+    if (clean.length > maxHtml) clean = sanitize(clean.slice(0, maxHtml));
     return { html: clean, text: htmlToText(clean).slice(0, maxText) };
   }
 

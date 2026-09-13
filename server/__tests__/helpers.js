@@ -9,6 +9,9 @@
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret-value";
 process.env.DISABLE_RATE_LIMIT = process.env.DISABLE_RATE_LIMIT || "true";
+// The tier endpoint is gated in production; the suite exercises the mechanism,
+// and the gate itself has its own test.
+process.env.ALLOW_SELF_SERVE_TIERS = process.env.ALLOW_SELF_SERVE_TIERS || "true";
 
 const mongoose = require("mongoose");
 const request = require("supertest");

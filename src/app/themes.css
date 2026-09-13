@@ -2,7 +2,7 @@
  * GENERATED FILE - do not edit by hand.
  *
  * Written by scripts/generate-themes.mjs from shared/themes.json.
- * Run `npm run themes` after changing a seed.
+ * Run `yarn themes` after changing a seed.
  *
  * 50 themes x light/dark. globals.css keeps its own :root/.dark
  * blocks as the fallback for when no data-theme is set.

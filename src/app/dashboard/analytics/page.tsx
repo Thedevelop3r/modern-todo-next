@@ -114,7 +114,7 @@ function ChartCard({
           {description && <p className="mt-0.5 text-xs text-fg-muted">{description}</p>}
         </div>
         {aside ? (
-          <div className="grid gap-5 sm:grid-cols-[1fr_180px] sm:items-center">
+          <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_180px] sm:items-center">
             <div>{children}</div>
             <div>{aside}</div>
           </div>

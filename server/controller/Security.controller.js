@@ -14,8 +14,16 @@ const {
 /** Oldest sessions are dropped past this, so the list stays meaningful. */
 const MAX_SESSIONS = 10;
 
-const clientIp = (req) =>
-  String(req?.headers?.["x-forwarded-for"] || "").split(",")[0].trim() || req?.ip || "";
+/**
+ * The client's address, as Express resolved it.
+ *
+ * Deliberately not read from X-Forwarded-For here: that header is client
+ * -supplied, so trusting it directly let anyone write any address into the
+ * audit log and the session list. Express derives `req.ip` from it only as far
+ * as the configured `trust proxy` hop count allows - see TRUST_PROXY_HOPS in
+ * server.js.
+ */
+const clientIp = (req) => String(req?.ip || "");
 
 class SecurityController {
   /**
@@ -124,10 +132,15 @@ class SecurityController {
   }
 
   /** Step two: the first correct code turns it on and mints recovery codes. */
-  async enableTwoFactor({ userId, code }) {
-    const user = await User.findById(userId).select("twoFactor");
+  async enableTwoFactor({ userId, code, password }) {
+    // The whole document, because the password has to be checked here - adding
+    // a factor is re-authenticated exactly like removing one.
+    const user = await User.findById(userId);
     if (!user) throw ApiError.notFound("User not found");
     if (user.twoFactor?.enabled) throw ApiError.conflict("Two-factor authentication is already on");
+
+    const matches = await user.comparePassword(password);
+    if (!matches) throw ApiError.badRequest("Password is incorrect");
 
     const secret = user.twoFactor?.pendingSecret;
     if (!secret) throw ApiError.badRequest("Start the setup first");

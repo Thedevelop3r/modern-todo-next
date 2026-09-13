@@ -1,5 +1,48 @@
+# Everything here is either rebuilt inside the image or must never enter it.
+# Keep this list honest: whatever is not excluded is uploaded to the Docker
+# daemon on every build, whether the Dockerfile uses it or not.
+
+# Rebuilt in the image
 node_modules
+.yarn/cache
+.yarn/install-state.gz
+.pnp.*
 .next
-.git
+/build
+/out
+
+# The PDF renderer builds from its own context (services/pdf/Dockerfile). Nothing
+# under services/ is used by the app image, and its cargo target/ alone is
+# several gigabytes of upload per build.
+services
+
+# Secrets
 .env
+.env*.local
+*.pem
+
+# Local caches and tooling
+.git
+.vs/
+.idea/
+.vercel
+coverage
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+
+# Documentation and assets the running image has no use for
 project-screenshots
+*.docx
+
+# Docker, compose and docs. None of them is read by the build, and since
+# `COPY . .` hashes whatever is sent, editing any of them would otherwise rerun
+# the whole Next.js build.
+Dockerfile
+.dockerignore
+compose.yaml
+*.md
+example-seperate-service-internal-network-only.txt
+scripts/docker-up.sh

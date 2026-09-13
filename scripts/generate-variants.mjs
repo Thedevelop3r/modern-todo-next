@@ -4,10 +4,10 @@
  * The same arrangement as the themes: the registry is JSON so both runtimes
  * read one source, and the browser side gets a plain TS module rather than a
  * JSON import. That is not ceremony - src/lib/variants.ts is covered by
- * `npm run test:web`, which runs on node's type stripping with no bundler, and
+ * `yarn test:web`, which runs on node's type stripping with no bundler, and
  * a JSON import would not resolve there.
  *
- * Run `npm run variants` after editing a variant file.
+ * Run `yarn variants` after editing a variant file.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -28,7 +28,7 @@ const header = `/*
  * GENERATED FILE - do not edit by hand.
  *
  * Written by scripts/generate-variants.mjs from shared/variants/*.json, which
- * server/config/variants.js reads directly. Run \`npm run variants\` after
+ * server/config/variants.js reads directly. Run \`yarn variants\` after
  * editing a variant.
  */`;
 

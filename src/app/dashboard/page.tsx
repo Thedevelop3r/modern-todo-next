@@ -60,7 +60,8 @@ export default function DashboardPage() {
   const toast = useToast();
   const { data: user } = useMe();
   const { filter, setFilter, reset, activeCount } = useTodoFilters(user?.preferences?.pageSize || 10);
-  const { view, setView, selection, toggleSelected, selectMany, clearSelection, pushUndo } = useUiStore();
+  const { view, setView, selection, toggleSelected, selectMany, clearSelection, pruneSelection, pushUndo } =
+    useUiStore();
   const { lower } = useVariant(filter.projectId);
 
   // Board and calendar need the whole set, not one page of it.
@@ -84,12 +85,12 @@ export default function DashboardPage() {
   const compact = user?.preferences?.density === "compact";
 
   // Drop ids that are no longer on screen so the bulk bar cannot act on them.
+  // The next selection is derived from the current one inside the setter rather
+  // than read from the closure, so this needs no dependency exception.
   React.useEffect(() => {
     const visible = new Set(todos.map((t) => t._id));
-    const stale = selection.filter((id) => !visible.has(id));
-    if (stale.length) selectMany(selection.filter((id) => visible.has(id)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+    pruneSelection(visible);
+  }, [todos, pruneSelection]);
 
   /**
    * Deleting answers with the todo, not the trash row, so restoring means
@@ -99,8 +100,22 @@ export default function DashboardPage() {
   const restoreFromTrash = React.useCallback(
     async (ids: string[]) => {
       const { api } = await import("@/lib/api");
-      const trash = await api.listTrash({ limit: 100 });
-      const entries = trash.data.filter((entry) => ids.includes(entry.todoId as string));
+
+      // Paged, not just the first 100: a bulk delete takes up to 200 ids at
+      // once, so the rows to restore can sit past the first page of a full
+      // trash - and undo failing on a todo that is sitting there intact is the
+      // worst possible moment to be wrong.
+      const wanted = new Set(ids);
+      const entries: Array<{ _id?: string }> = [];
+
+      for (let page = 1; wanted.size > 0 && page <= 10; page += 1) {
+        const trash = await api.listTrash({ limit: 100, page });
+        trash.data.forEach((entry) => {
+          if (wanted.delete(String(entry.todoId))) entries.push(entry);
+        });
+        if (page >= (trash.meta?.totalPages || 1)) break;
+      }
+
       if (!entries.length) throw new Error("Nothing left to restore");
       await Promise.all(entries.map((entry) => recoverTrash.mutateAsync(entry._id as string)));
     },
@@ -410,6 +425,15 @@ export default function DashboardPage() {
             ))}
           </AnimatePresence>
         </div>
+      )}
+
+      {/* Board and calendar ask for the whole set, but the API caps a page at
+          100 - so say when there is more rather than quietly showing part of it. */}
+      {isWholeSetView && meta && (meta.totalRecords || 0) > todos.length && (
+        <p className="text-sm text-fg-muted">
+          Showing the first {todos.length} of {meta.totalRecords} {lower("todo", "many")}. Narrow the filters to
+          see the rest.
+        </p>
       )}
 
       {!isWholeSetView && meta && (

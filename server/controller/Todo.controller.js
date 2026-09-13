@@ -152,6 +152,13 @@ class TodoController {
   }
 
   async create({ body, userId, user }) {
+    // `update` has always checked this; without the same check here a todo can
+    // be created pointing at a stranger's project, which nothing reads but
+    // nothing cleans up either.
+    if (body.projectId) {
+      await this.assertProjectOwned({ projectId: body.projectId, userId });
+    }
+
     const variantId = await this.activeVariant({ user, projectId: body.projectId, userId });
     // An insert has no other variant's data to drop, so the nested form is safe
     // here - and it is the only place it is.
@@ -391,6 +398,12 @@ class TodoController {
   async bulk({ ids, action, value, userId }) {
     const scope = { _id: { $in: ids }, ownerId: userId };
 
+    // Same rule as the single-todo write path: a todo may only be filed under a
+    // project the caller owns.
+    if (action === "project" && value) {
+      await this.assertProjectOwned({ projectId: value, userId });
+    }
+
     if (action === "delete") {
       const todos = await Todo.find(scope);
       if (todos.length) {
@@ -427,7 +440,9 @@ class TodoController {
     const build = updates[action];
     if (!build) throw ApiError.badRequest(`Unsupported bulk action: ${action}`);
 
-    const result = await Todo.updateMany(scope, { $set: build() });
+    // updateMany skips schema validators unless asked, so the enums would not
+    // be enforced here even though the schema declares them.
+    const result = await Todo.updateMany(scope, { $set: build() }, { runValidators: true });
     return { modified: result.modifiedCount };
   }
 

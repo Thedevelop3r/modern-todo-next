@@ -15,7 +15,7 @@ const { ApiError } = require("../utils/api-error");
 const { deleteBytes } = require("../utils/gridfs");
 const { FileController } = require("./File.controller");
 const { StorageController } = require("./Storage.controller");
-const { tempDir } = require("../services/storage-sweep");
+const { ensureTempDir } = require("../services/storage-sweep");
 const { jobRegistry, RENDER_JOB } = require("../services/job-registry");
 const pdfClient = require("../services/pdf.client");
 const { FILE_FLAGS } = require("../config/storage");
@@ -422,7 +422,9 @@ class Pdf {
     }
     const renderMs = Date.now() - startedAt;
 
-    const scratch = tempDir();
+    // mkdir -p on every upload: the boot-time call is not enough, because a tmp
+    // reaper can remove the directory under a long-running process.
+    const scratch = await ensureTempDir();
     const tempFile = path.join(scratch, `${jobId}.pdf`);
     let reservationHeld = false;
     let stored = null;

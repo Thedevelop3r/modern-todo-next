@@ -353,6 +353,26 @@ test("an unknown tier is rejected by validation", async () => {
   await agent.put("/api/files/quota/tier").send({ tier: "1tb" }).expect(400);
 });
 
+test("changing the plan is refused unless self-serve tiers are switched on", async () => {
+  const { agent } = await makeUser(app);
+  const previous = process.env.ALLOW_SELF_SERVE_TIERS;
+  process.env.ALLOW_SELF_SERVE_TIERS = "false";
+
+  try {
+    // Billing is not wired up, so an account must not be able to grant itself
+    // the largest quota and per-file cap in one request.
+    await agent.put("/api/files/quota/tier").send({ tier: "100gb" }).expect(403);
+
+    const quota = await agent.get("/api/files/quota").expect(200);
+    assert.equal(quota.body.tier, "base");
+    // The client reads this to render the plan read-only instead of offering a
+    // control that answers 403.
+    assert.equal(quota.body.selfServeTiers, false);
+  } finally {
+    process.env.ALLOW_SELF_SERVE_TIERS = previous;
+  }
+});
+
 test("a bigger per-file tier lets a previously refused file through", async () => {
   const { agent } = await makeUser(app);
 

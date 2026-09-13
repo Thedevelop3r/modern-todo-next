@@ -11,7 +11,7 @@
  * only costs a missing suggestion: the settings field accepts free text and
  * validates any name against Google directly.
  *
- *   npm run fonts
+ *   yarn fonts
  */
 
 import { writeFileSync } from "node:fs";

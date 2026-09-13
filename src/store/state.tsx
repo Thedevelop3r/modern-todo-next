@@ -25,6 +25,8 @@ type UiState = {
   toggleSelected: (id: string) => void;
   selectMany: (ids: string[]) => void;
   clearSelection: () => void;
+  /** Keeps only the ids still on screen, derived from the current selection. */
+  pruneSelection: (visible: Set<string | undefined>) => void;
 
   /**
    * Reversible actions, newest first. Entries hold a closure, so the stack is
@@ -69,6 +71,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     })),
   selectMany: (ids) => set({ selection: ids }),
   clearSelection: () => set({ selection: [] }),
+  pruneSelection: (visible) =>
+    set((s) => {
+      const kept = s.selection.filter((id) => visible.has(id));
+      // Same array when nothing was stale, so this cannot loop an effect.
+      return kept.length === s.selection.length ? s : { selection: kept };
+    }),
 
   undoStack: [],
   pushUndo: (entry) =>

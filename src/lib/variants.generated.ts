@@ -2,7 +2,7 @@
  * GENERATED FILE - do not edit by hand.
  *
  * Written by scripts/generate-variants.mjs from shared/variants/*.json, which
- * server/config/variants.js reads directly. Run `npm run variants` after
+ * server/config/variants.js reads directly. Run `yarn variants` after
  * editing a variant.
  */
 

@@ -138,7 +138,11 @@ router.post(
   "/2fa/enable",
   validate(twoFactorCodeSchema),
   asyncTryCatchWrapper(async (req, res) => {
-    const result = await Security.enableTwoFactor({ userId: req.user._id, code: req.body.code });
+    const result = await Security.enableTwoFactor({
+      userId: req.user._id,
+      code: req.body.code,
+      password: req.body.password,
+    });
     await SecurityController.record({ userId: req.user._id, action: "2fa.enabled", req });
     res.status(200).json(result);
   })

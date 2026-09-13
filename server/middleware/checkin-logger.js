@@ -43,7 +43,9 @@ async function checkinLogger(req, res, next) {
       durationMs: Math.round(durationMs * 10) / 10,
       // Present only once `auth` has run, which is exactly when it is useful.
       userId: req.user?._id ? String(req.user._id) : undefined,
-      ip: req.headers["x-forwarded-for"] || req?.socket?.remoteAddress,
+      // req.ip, not the raw header: Express honours X-Forwarded-For only as far
+      // as `trust proxy` allows, so a client cannot forge what we log.
+      ip: req.ip || req?.socket?.remoteAddress,
     };
 
     if (MODE === "json") {

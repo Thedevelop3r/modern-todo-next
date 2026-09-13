@@ -18,7 +18,7 @@ const { getBucket, deleteBytes } = require("../utils/gridfs");
 const { sniffMime, safeFilename, dispositionFilename, SNIFF_BYTES } = require("../utils/file-type");
 const { StorageController } = require("./Storage.controller");
 const { ActivityController } = require("./Activity.controller");
-const { tempDir } = require("../services/storage-sweep");
+const { ensureTempDir } = require("../services/storage-sweep");
 const { compress } = require("../services/compression");
 const { jobRegistry } = require("../services/job-registry");
 const {
@@ -195,7 +195,9 @@ class File {
     const declared = Number(req.headers["content-length"]) || 0;
     const reserved = declared > 0 ? declared : hardLimit;
 
-    const scratch = tempDir();
+    // mkdir -p on every upload: the boot-time call is not enough, because a tmp
+    // reaper can remove the directory under a long-running process.
+    const scratch = await ensureTempDir();
     const destination = path.join(scratch, `${jobId}.in`);
     let compressedPath = null;
     let reservationHeld = false;

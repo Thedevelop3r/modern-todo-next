@@ -281,6 +281,8 @@ type StorageSummary = {
   fileCount: number;
   caps: Record<FileKind, number>;
   tiers: Array<{ id: StorageTier; label: string; quotaBytes: number }>;
+  /** Whether the plan can be changed from the UI - false until billing exists. */
+  selfServeTiers: boolean;
 };
 
 /** Which record a generated PDF belongs to. */
