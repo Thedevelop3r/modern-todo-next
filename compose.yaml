@@ -25,6 +25,9 @@ services:
     volumes:
       - mongo_data:/data/db
 
+    networks:
+      - backend
+
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
@@ -35,14 +38,25 @@ services:
   app:
     container_name: modern-todo
 
+    # The production image: a prebuilt bundle, no dev server and no source sync.
+    # Code changes take a rebuild - docker compose up -d --build app
     build: .
+    image: modern-todo-app
 
     restart: unless-stopped
 
     # Wait for a database that answers, not merely a container that started.
+    #
+    # Deliberately no dependency on `pdf`: its image takes far longer to build,
+    # and the app must not wait for it. The PDF client answers 503 while the
+    # renderer is unreachable and picks it up as soon as it is listening.
     depends_on:
       mongodb:
         condition: service_healthy
+
+    networks:
+      - frontend
+      - backend
 
     env_file:
       - .env
@@ -54,33 +68,59 @@ services:
     environment:
       MONGO_URL: ${MONGO_URL}
       JWT_SECRET: ${JWT_SECRET}
-      NODE_ENV: ${NODE_ENV}
+      # Always production in the container, whatever .env says for host runs:
+      # server.js starts the Next dev server otherwise, ignoring the built
+      # bundle, and the session cookie loses its Secure flag. The image's
+      # `ENV NODE_ENV=production` alone is not enough - this would override it.
+      NODE_ENV: production
       PORT: ${PORT}
       HOSTNAME: 0.0.0.0
-      # The renderer runs as a child of server.js inside this container and
-      # listens on loopback only, so it needs no port of its own here.
+      # The renderer is the `pdf` service below, not a child process - this
+      # image does not contain the binary.
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
-      PDF_SERVICE_SPAWN: ${PDF_SERVICE_SPAWN:-1}
+      PDF_SERVICE_SPAWN: "0"
+      PDF_SERVICE_URL: http://pdf:8787
       # How many reverse proxies sit in front of this container. 0 means the app
       # is reached directly, so X-Forwarded-For is not trusted at all.
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
       # Storage plans are self-serve only where this is "true"; off until billing.
       ALLOW_SELF_SERVE_TIERS: ${ALLOW_SELF_SERVE_TIERS:-false}
 
-    stdin_open: true
-    tty: true
+  pdf:
+    container_name: modern-todo-pdf
 
-    develop:
-      watch:
-        - path: .
-          action: sync
-          target: /app
-          ignore:
-            - node_modules/
-            - .next/
+    # Its own build context: the service shares no code with the application,
+    # so the two images build independently and in parallel.
+    build: ./services/pdf
+    image: modern-todo-pdf
 
-        - path: package.json
-          action: rebuild
+    restart: unless-stopped
+
+    # Internal network only. `expose` is not `ports`: nothing reaches this from
+    # the host, and the backend network has no route out either.
+    expose:
+      - "8787"
+    networks:
+      - backend
+
+    # Only the shared key - the renderer never sees the database or JWT secrets.
+    environment:
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
+      PDF_SERVICE_PORT: 8787
+      PDF_SERVICE_HOST: 0.0.0.0
+
+    # It writes nothing and reads nothing outside its own binary.
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  # The app's published port lives here.
+  frontend:
+  # MongoDB and the renderer. `internal` means no outbound route and nothing
+  # published to the host - only containers on this network can reach them.
+  backend:
+    internal: true
 
 volumes:
   # A distinct name from the 5.0-era `db` volume: MongoDB cannot read data files

@@ -12,7 +12,7 @@ import { DEFAULT_VARIANT_ID, VARIANT_CATALOGUE } from "./variants.generated.ts";
  * moment a variant needs a component change, the registry is wrong. That rule
  * is what keeps a new variant a JSON file rather than a patch across the app.
  *
- * This module is pure, so it is covered by `npm run test:web`.
+ * This module is pure, so it is covered by `yarn test:web`.
  */
 
 /** The closed set of field types. VariantFields renders exactly these seven. */

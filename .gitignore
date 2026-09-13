@@ -1,8 +1,5 @@
 # dependencies
 /node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
 
 # testing
 /coverage
@@ -37,3 +34,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Yarn 4 with the node-modules linker and no zero-installs: only the pinned
+# release is committed. Packages live in the global cache, not in the repo.
+.yarn/*
+!.yarn/releases
+.pnp.*

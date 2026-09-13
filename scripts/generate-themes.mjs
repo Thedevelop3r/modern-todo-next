@@ -11,7 +11,7 @@
  * lightness ramp reads the same across every hue, which an HSL ramp does not.
  * It runs at build time, so there is no dependency and no runtime cost.
  *
- *   npm run themes
+ *   yarn themes
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -308,7 +308,7 @@ const header = `/*
  * GENERATED FILE - do not edit by hand.
  *
  * Written by scripts/generate-themes.mjs from shared/themes.json.
- * Run \`npm run themes\` after changing a seed.
+ * Run \`yarn themes\` after changing a seed.
  *
  * ${seeds.length} themes x light/dark. globals.css keeps its own :root/.dark
  * blocks as the fallback for when no data-theme is set.

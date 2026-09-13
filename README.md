@@ -85,20 +85,22 @@ a gradebook, an evidence trail, a shift handover, an order sheet. See
 node server.js
      │
      ├── /api/*   →  Express app (server/)      — auth, todos, projects, files, PDFs, account
-     ├── /*       →  Next.js handler (src/app/) — pages, assets, HMR
+     ├── /*       →  Next.js handler (src/app/) — pages, assets (HMR in development only)
      │
-     └── spawns   →  services/pdf (Rust)        — 127.0.0.1:8787, renders PDFs
+     └── HTTP     →  services/pdf (Rust)        — renders PDFs
+                     Docker: its own container at pdf:8787
+                     yarn dev: a spawned child on 127.0.0.1:8787
 ```
 
 Pages and API share an origin, so there is no CORS layer and the JWT session
 cookie is a plain same-site `HttpOnly` cookie. The browser calls the API with
 relative paths — nothing has a hardcoded host or port.
 
-The PDF renderer is a child process of the server, not a supervised service:
-`server.js` already owns the lifecycle, so it owns the renderer's too. It binds
-loopback only and is never reachable from outside the container. Setting
-`PDF_SERVICE_SPAWN=0` and pointing `PDF_SERVICE_URL` elsewhere is the entire
-difference between "in this container" and "its own service" — see
+The PDF renderer is a separate Rust service. Under Docker it runs in its own
+container, reachable only over an internal compose network; for a host run with
+`yarn dev`, `server.js` spawns a locally built binary as a child process on
+loopback instead. `PDF_SERVICE_SPAWN` and `PDF_SERVICE_URL` are the entire
+difference between the two — see
 [`example-seperate-service-internal-network-only.txt`](example-seperate-service-internal-network-only.txt).
 
 ## Layout
@@ -118,7 +120,7 @@ server/                the API
   utils/               GridFS, magic-byte typing, the HTML sanitiser, rich-text helpers
   validation/          zod schemas — the CommonJS mirror of src/lib/validation.ts
   __tests__/           API test suite
-services/pdf/          the Rust renderer (Cargo, not npm)
+services/pdf/          the Rust renderer (Cargo, not Yarn)
   src/                 HTTP + auth, the request contract, markup, rendering
   templates/           common.typ plus one .typ per application type
   fonts/               the faces baked into the binary
@@ -146,7 +148,7 @@ of values for those same variables, which is why adding fifty of them changed no
 component at all.
 
 `shared/themes.json` holds one compact **seed** per theme (three hues, two chroma
-amounts, a default font and a collection). `npm run themes` expands each seed into
+amounts, a default font and a collection). `yarn themes` expands each seed into
 a light and a dark block:
 
 ```css
@@ -166,7 +168,7 @@ topbar toggle picks the mode, and every theme has both. Pick one under
 **Settings → Appearance**.
 
 > `src/app/themes.css` and `src/lib/themes.generated.ts` are generated. Edit
-> `shared/themes.json` and run `npm run themes` instead.
+> `shared/themes.json` and run `yarn themes` instead.
 
 ### Any Google Font, by name
 
@@ -324,6 +326,8 @@ A few things each type brings:
 **Required**
 
 - Node.js 24+
+- Yarn, any version — the repository pins Yarn 4.18.0, and a global Yarn 1 or
+  Corepack's `yarn` hands off to it
 - MongoDB (or Docker, which brings one up for you)
 
 **Optional — each one degrades gracefully if missing**
@@ -334,20 +338,34 @@ A few things each type brings:
   ships its own binaries, so images are always covered. Missing tools are detected
   at startup and the original file is stored instead.
 
-The Docker image includes all of them.
+The Docker setup includes all of them: the renderer in its own image, `ffmpeg` and
+`qpdf` in the app image.
 
 ## Setup
 
 ```bash
 cp .env.example .env      # then edit MONGO_URL, JWT_SECRET and PDF_SERVICE_KEY
-npm install
+yarn install
 
 # optional: build the PDF renderer (first build takes a few minutes)
 cargo build --release --manifest-path services/pdf/Cargo.toml
 ```
 
-`bcrypt` compiles a native addon; if your package manager blocks install scripts,
-run `npm rebuild bcrypt` after approving it.
+### Package manager
+
+The project uses **Yarn 4**, pinned: `.yarnrc.yml` points `yarnPath` at the
+committed `.yarn/releases/yarn-4.18.0.cjs`, so whichever `yarn` is on your PATH
+— a global 1.x, or Corepack's — runs that exact release. There is no
+`package-lock.json`; commit `yarn.lock`, and change dependencies with `yarn add`
+and `yarn remove`.
+
+- **`nodeLinker: node-modules`** — a plain `node_modules` tree. Plug'n'Play
+  breaks Next.js and the native modules.
+- **`enableScripts: false`** — no dependency runs install scripts. `bcrypt` and
+  `sharp` load their bundled prebuilt binaries without one, and the test suite's
+  `mongod` is downloaded on the first `yarn test` rather than at install.
+- **`resolutions`** in `package.json` pins `qs` and `postcss` above the versions
+  `express` and `next` ask for (npm called these `overrides`).
 
 ### Environment
 
@@ -366,28 +384,28 @@ run `npm rebuild bcrypt` after approving it.
 
 ```bash
 # development (hot reload)
-npm run dev
+yarn dev
 
 # production
-npm run build
-npm start
+yarn build
+yarn start
 
 # tests — the API suite, then the frontend one
-npm test
-npm run test:api
-npm run test:web
+yarn test
+yarn test:api
+yarn test:web
 
 # lint
-npm run lint
+yarn lint
 
 # regenerate the theme CSS after editing shared/themes.json
-npm run themes
+yarn themes
 
 # regenerate the application types after editing shared/variants/*.json
-npm run variants
+yarn variants
 
 # refresh the bundled Google Fonts family list
-npm run fonts
+yarn fonts
 
 # the PDF renderer: build it, test it, run it by hand
 cargo build --release --manifest-path services/pdf/Cargo.toml
@@ -399,22 +417,63 @@ The whole application — pages and API — is then on `http://localhost:3000`
 
 ## Docker & compose
 
+Three containers, each from its own image:
+
+| Service | Image | What it is | Reachable from |
+|---|---|---|---|
+| `app` | `modern-todo-app` (~1.66 GB) | Next.js pages + Express API, production build | the host, on `PORT` |
+| `pdf` | `modern-todo-pdf` (~175 MB) | the Rust renderer | `app` only |
+| `mongodb` | `mongo:8.0` | the database | `app` only |
+
+The app and the renderer build from separate contexts (`.` and `services/pdf/`),
+so they build in parallel and a change to one never rebuilds the other. The
+renderer's first build compiles typst and a few hundred crates and takes far
+longer than the app's; nothing else waits for it.
+
 ```bash
-# builds the app image and starts MongoDB alongside it
+# recommended: starts the renderer's build in the background, brings up MongoDB
+# and the app as soon as their images are ready, then starts the renderer when
+# its build finishes
+./scripts/docker-up.sh
+
+# the same by hand, in two terminals
+docker compose up -d --build mongodb app
+docker compose up -d --build pdf
+
+# plain `up --build` works too, but compose builds every image before starting
+# any container, so it waits for the Rust compile
 docker compose up --build
 
-# compose watch mode
-docker compose watch
+# after changing application code, rebuild and restart just the app
+docker compose up -d --build app
 ```
 
-The image is multi-stage: a Rust builder produces the PDF renderer, and the
-runtime image adds `ffmpeg` and `qpdf` before building the app. Everything runs in
-one container, with the renderer as a child process on loopback — splitting it out
-later is a compose service and two environment variables, no code change.
+`PDF_SERVICE_KEY` must be set in `.env` (16+ characters) — the renderer exits at
+boot without it. The app does not depend on the renderer: until `pdf` is
+listening, PDF export answers 503 and everything else works.
+
+**The app container is always the production server.** `next build` runs once
+inside the image and pages are served from that bundle, so nothing compiles on
+request; compose pins `NODE_ENV=production` for it whatever `.env` says. There is
+no source sync or watch mode — for hot reload, run `yarn dev` on the host. The
+image is multi-stage — `yarn install --immutable`, `yarn build`, then
+`yarn workspaces focus --all --production` to drop devDependencies — and the
+runtime holds only
+`ffmpeg`, `qpdf`, production `node_modules`, `server/`, `shared/`, `public/` and
+the built `.next`. It runs as `node`, with the code read-only to it; only `.next`
+is writable.
+
+**The renderer image** ends in `debian:trixie-slim` with nothing but the binary
+(fonts and templates are compiled in). It runs as a non-root user on a read-only
+filesystem.
+
+**Networking:** MongoDB and the renderer sit on an `internal` network with no
+published ports and no route out. The app is on that network and on a normal one
+that carries its published port — the only thing that reaches the host.
 
 ## Tests
 
-`npm test` runs both suites on Node's built-in test runner — no jest, no vitest
+`yarn test` runs both suites on Node's built-in test runner — no jest, no vitest
 and no build step, because Node 24 strips the types itself.
 
 The API suite runs against an in-memory MongoDB and covers auth, per-user
@@ -426,8 +485,8 @@ modules: helpers, dates, quick-add parsing, filter serialisation, validation, ri
 text, the theme catalogue and the application-type registry.
 
 ```bash
-npm test                                   # downloads a mongod binary on first run
-MONGO_TEST_URL=mongodb://localhost:27017/todo-test npm test   # or use your own
+yarn test                                   # downloads a mongod binary on first run
+MONGO_TEST_URL=mongodb://localhost:27017/todo-test yarn test   # or use your own
 
 cargo test --manifest-path services/pdf/Cargo.toml   # the renderer's own tests
 ```

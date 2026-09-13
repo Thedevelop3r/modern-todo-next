@@ -2,7 +2,7 @@
   "name": "modern-todo",
   "version": "2.1.0",
   "private": true,
-  "description": "Modern Todo \u2014 Next.js frontend and Express API served together from one custom server",
+  "description": "Modern Todo — Next.js frontend and Express API served together from one custom server",
   "author": "Bilal Amjad",
   "developer-github": "www.github.com/thedevelop3r",
   "username": "@thedevelop3r",
@@ -13,7 +13,7 @@
     "build": "next build",
     "start": "cross-env NODE_ENV=production node server.js",
     "lint": "next lint",
-    "test": "npm run test:api && npm run test:web",
+    "test": "yarn test:api && yarn test:web",
     "test:watch": "node --test --watch \"server/__tests__/**/*.test.js\"",
     "test:api": "node --test \"server/__tests__/**/*.test.js\"",
     "test:web": "node --test \"src/__tests__/**/*.test.ts\"",
@@ -85,12 +85,9 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5"
   },
-  "allowScripts": {
-    "bcrypt@6.0.0": true,
-    "sharp@0.35.4": true
-  },
-  "overrides": {
+  "resolutions": {
     "qs": "^6.16.0",
-    "postcss": "$postcss"
-  }
+    "postcss": "^8.5.26"
+  },
+  "packageManager": "yarn@4.18.0"
 }

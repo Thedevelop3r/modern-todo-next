@@ -1,0 +1,5 @@
+# Several gigabytes of local cargo output; the image compiles its own.
+target
+.gitignore
+Dockerfile
+.dockerignore

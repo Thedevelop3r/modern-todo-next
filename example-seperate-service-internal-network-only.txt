@@ -1,10 +1,10 @@
 Running the PDF renderer as its own service
 ===========================================
 
-Today the renderer is a child process of `server.js` inside the application
-container. That is a deployment choice, not an architectural one: the service
-already speaks HTTP, holds no state, never touches MongoDB and never reads the
-filesystem outside its own binary. Splitting it out is configuration.
+Under Docker this split is now the default: compose.yaml runs the renderer as
+the `pdf` service, built from services/pdf/Dockerfile, and the app image no
+longer contains it. The child-process mode remains for host runs (`yarn dev`). The service speaks HTTP, holds no state, never touches MongoDB and never
+reads the filesystem outside its own binary, so the split is configuration.
 
 Why you would: the renderer is CPU-bound and competes with ffmpeg, Node and Next
 for the same cores. Once PDF volume is real, give it its own box and scale it
@@ -85,10 +85,10 @@ There isn't one. `PDF_SERVICE_SPAWN=0` stops `server/services/pdf-service.js`
 spawning a child, and `PDF_SERVICE_URL` tells `server/services/pdf.client.js`
 where to look; both are read from the environment at call time. No code moves.
 
-Also drop the renderer from the application image once it is split: delete the
-`pdf-builder` stage and its `COPY --from=pdf-builder` line in the root
-`Dockerfile`. That is the several minutes and several hundred megabytes the
-split buys back.
+The renderer is no longer part of the application image: the root `Dockerfile`
+has no Rust stage, so the two images build in parallel and the app never waits
+on the compile. `scripts/docker-up.sh` starts the app and database while the
+renderer is still building.
 
 4. Beyond compose
 -----------------

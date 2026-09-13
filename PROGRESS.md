@@ -7,7 +7,7 @@ Architecture lives in `CONTEXT.md`; this file is only *what is done and what is 
 
 1. Read `CONTEXT.md` §2 (layout), §3 (API), §7 (conventions).
 2. Find the first batch below that is not `DONE`.
-3. Work batch by batch. After each batch: `npm run build` + `npm test`, then tick
+3. Work batch by batch. After each batch: `yarn build` + `yarn test`, then tick
    the boxes here, append to "Decisions", and update `CONTEXT.md` if the API or
    layout changed.
 4. Keep this file compact — status and decisions only, never code.
@@ -15,12 +15,12 @@ Architecture lives in `CONTEXT.md`; this file is only *what is done and what is 
 ## Verify commands
 
 ```bash
-npm run build      # types + lint, 24 routes
-npm run themes     # regenerate the theme CSS after editing shared/themes.json
-npm test           # both suites: API then frontend
-npm run test:api   # server/__tests__ (node --test, mongodb-memory-server)
-npm run test:web   # src/__tests__ (node --test, node 24 strips the types)
-npm run lint
+yarn build      # types + lint, 24 routes
+yarn themes     # regenerate the theme CSS after editing shared/themes.json
+yarn test       # both suites: API then frontend
+yarn test:api   # server/__tests__ (node --test, mongodb-memory-server)
+yarn test:web   # src/__tests__ (node --test, node 24 strips the types)
+yarn lint
 ```
 
 ---

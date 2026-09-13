@@ -17,6 +17,16 @@ regression test naming the bug it prevents.
 Nothing changes for anyone using the application normally, with three exceptions
 worth knowing about, listed under *Changed* below.
 
+**Docker now runs three containers from three images** — the Next.js app, the
+Rust PDF renderer and MongoDB. The renderer's compile no longer holds up the
+application: the app and database build and start on their own, and the
+renderer joins whenever its build finishes. The app container is strictly the
+production server, and its image went from 4.05 GB to 1.66 GB. See *Changed —
+deployment* and *Upgrading*.
+
+**The project moves from npm to Yarn 4**, pinned in the repository, with install
+scripts off for every dependency. See *Changed — package manager*.
+
 ### Fixed — data integrity
 
 - **PDF compression no longer stores a truncated file.** Every external tool was
@@ -65,8 +75,8 @@ worth knowing about, listed under *Changed* below.
   this application's use of `next/image` exposed — so Next moves to 15.5.25 and
   React to 19. `bcrypt` moves to 6, which drops the `node-pre-gyp` and `tar`
   chain entirely; `qs` and `postcss` are pinned to their patched lines.
-- **The container no longer runs as root.** It also builds with `npm ci` rather
-  than `npm install`, prunes devDependencies out of the runtime image, declares a
+- **The container no longer runs as root.** It also builds from the lockfile
+  (`yarn install --immutable`), prunes devDependencies out of the runtime image, declares a
   `HEALTHCHECK` against `/api/health`, and runs `node` as PID 1 so a signal
   reaches the shutdown handlers directly and a clean stop exits 0.
 - **The Docker build context drops from ~560 MB to ~6 MB.** `.dockerignore` did
@@ -128,6 +138,18 @@ worth knowing about, listed under *Changed* below.
 - Two effects that read state they excluded from their dependencies now derive it
   inside the setter instead, removing both lint exceptions.
 
+### Fixed — deployment
+
+- **The app container no longer crash-loops with `cross-env: not found`.** It
+  started through `npm run start`, which needs `cross-env` — a devDependency the
+  image had just pruned. It now runs `node server.js` directly, so signals reach
+  the shutdown handlers too.
+- **The container no longer runs the Next dev server.** Compose passed
+  `NODE_ENV` through from `.env`, overriding the image's own default, so an
+  `.env` set up for host development made the container compile pages on request
+  and serve the session cookie without its `Secure` flag. Compose now pins
+  `NODE_ENV=production` for the app, and the image bakes it in.
+
 ### Changed
 
 - **`POST /api/todo` and `PATCH /api/todo/bulk` now answer 400** where they
@@ -142,12 +164,60 @@ worth knowing about, listed under *Changed* below.
 
 - `NODE_ENV` is documented in `.env.example` as load-bearing rather than
   cosmetic: `server.js` starts Next in dev mode whenever it is not
-  `production`, so a container built as a production image still ran the dev
-  server, ignored the bundle it had just built, and served the session cookie
-  without its `Secure` flag. Compose passes `NODE_ENV` from `.env`, which
-  overrides the image's own default, so this is set there.
+  `production`. `.env` sets it for host runs only; the container is always
+  production (see *Fixed — deployment*).
 - The deprecated `useNewUrlParser` and `useUnifiedTopology` connection options
   are gone. Both have been no-ops since driver 4.0 and throw in the next major.
+
+### Changed — deployment
+
+- **The PDF renderer runs in its own container.** `services/pdf/Dockerfile`
+  builds it from its own context, and compose runs it as the `pdf` service on
+  port 8787 of an internal network. The app reaches it at `http://pdf:8787` with
+  `PDF_SERVICE_SPAWN=0`; the child-process mode remains for `yarn dev`.
+- **The app does not wait for the renderer.** There is no `depends_on: pdf`.
+  Until the renderer is listening, PDF export answers 503 and everything else
+  works.
+- **The app image is a production build only.** The root `Dockerfile` has no
+  Rust stage and is multi-stage: dependencies, `next build`, then a runtime with
+  just `ffmpeg`, `qpdf`, production `node_modules`, `server/`, `shared/`,
+  `public/` and `.next`. Sources, devDependencies, the webpack cache, the tests
+  and the 212 MB test `mongod` that `mongodb-memory-server` left in
+  `node_modules/.cache` all stay in the build stage.
+- **MongoDB and the renderer are on an `internal` network**, with no published
+  ports and no outbound route. The app joins that network and a normal one for
+  its published port.
+- **The app's code is read-only to the process.** Files are root-owned and only
+  `.next` belongs to `node`, set with `COPY --chown` instead of a `chown -R`
+  over all of `/app`, which duplicated `node_modules` into another layer.
+- `.dockerignore` excludes `services/` (the renderer builds from its own
+  context) and the Docker, compose and documentation files, so editing any of
+  them no longer reruns `next build`.
+
+### Changed — package manager
+
+- **Yarn 4 replaces npm.** `.yarn/releases/yarn-4.18.0.cjs` is committed and
+  `.yarnrc.yml` points `yarnPath` at it, so a global Yarn 1, Corepack's `yarn`
+  and the Yarn bundled in the node image all run the same release. `yarn.lock`
+  replaces `package-lock.json`, and `package.json` records
+  `"packageManager": "yarn@4.18.0"`.
+- **`nodeLinker: node-modules`.** Dependencies install into a plain
+  `node_modules`; Plug'n'Play breaks Next.js and the native modules.
+- **No dependency runs install scripts** (`enableScripts: false`), replacing
+  npm's `allowScripts` allowlist with a stricter rule. `bcrypt` and `sharp` load
+  their bundled prebuilt binaries without one; `mongodb-memory-server` downloads
+  its `mongod` on the first `yarn test` instead of at install.
+- **`overrides` became `resolutions`**, pinning `qs` (`^6.16.0`) and `postcss`
+  (`^8.5.26`) above what `express` and `next` ask for.
+- **The lockfile was migrated, not re-resolved.** 699 of the 716 package versions
+  npm had installed are unchanged. 17 moved to newer patch or minor releases
+  within their existing ranges — among direct dependencies, `express` 4.22.1 →
+  4.22.2, `lucide-react` 1.42.0 → 1.45.0, `tailwind-merge` 3.6.0 → 3.7.0, `zod`
+  4.5.4 → 4.6.4 and `autoprefixer` 10.5.4 → 10.6.0.
+- The Docker build installs with `yarn install --immutable` and drops
+  devDependencies with `yarn workspaces focus --all --production`.
+- Every command in the documentation and in code comments is `yarn <script>`;
+  `yarn test` runs `yarn test:api && yarn test:web`.
 
 ### Added
 
@@ -156,6 +226,20 @@ worth knowing about, listed under *Changed* below.
 - `selfServeTiers` on `GET /api/files/quota`.
 - A `HEALTHCHECK` on the application image and a healthcheck on the database
   service, with the application waiting for the latter.
+- `scripts/docker-up.sh` builds the renderer in the background, starts MongoDB
+  and the app as soon as their images are ready, then starts the renderer.
+- The renderer container has a healthcheck on `GET /health`, runs as a non-root
+  user on a read-only filesystem with `no-new-privileges`, and receives only
+  `PDF_SERVICE_KEY` — never the database or JWT secrets.
+- The renderer image stops on `SIGINT`. Its graceful shutdown listens for ctrl-c
+  only, so as PID 1 it would ignore `SIGTERM` and every stop would wait out the
+  kill timeout.
+
+### Removed
+
+- Compose watch mode (`develop.watch`), `tty` and `stdin_open` on the app. They
+  belong to a development container; for hot reload, run `yarn dev` on the
+  host.
 - `server/__tests__/regressions.test.js` — one test per finding above.
 
 ### Upgrading
@@ -175,6 +259,19 @@ worth knowing about, listed under *Changed* below.
    `%%EOF` need re-uploading.
 5. Run `Storage.recompute()` (or open the Files page, which self-heals on drift)
    for any account that uploaded a truncated PDF.
+6. Set `PDF_SERVICE_KEY` in `.env` to at least 16 characters, or the `pdf`
+   container exits at boot. `PDF_SERVICE_SPAWN` and `PDF_SERVICE_URL` in `.env`
+   are ignored under compose, which sets both for the app.
+7. Start with `./scripts/docker-up.sh`, or `docker compose up -d --build`.
+   Compose recreates MongoDB on the new internal network; the `mongo_data`
+   volume is kept.
+8. The app image no longer contains the renderer. Running it alone with
+   `docker run` means no PDF export until a `pdf` container is reachable.
+9. `docker compose watch` no longer applies. Rebuild the app after a code change
+   with `docker compose up -d --build app`.
+10. Switch to Yarn: delete `node_modules`, then run `yarn install`. Any `yarn`
+    works — the pinned 4.18.0 takes over. Use `yarn <script>` where you used
+    `npm run <script>`, and do not commit a `package-lock.json` back.
 
 ---
 

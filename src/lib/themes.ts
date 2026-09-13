@@ -5,7 +5,7 @@ import { THEME_CATALOGUE } from "./themes.generated.ts";
  * themes.generated.ts is written by scripts/generate-themes.mjs from the same
  * shared/themes.json that produces src/app/themes.css and that
  * server/validation/schemas.js validates against - so a theme cannot appear in
- * the gallery without existing in the CSS. Run `npm run themes` after editing a
+ * the gallery without existing in the CSS. Run `yarn themes` after editing a
  * seed.
  *
  * Only the presentation fields are generated; the hues and chroma that build a

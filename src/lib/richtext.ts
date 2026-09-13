@@ -1,7 +1,7 @@
 /**
  * Pure rich-text helpers.
  *
- * Kept free of React and of `next/*` imports so `npm run test:web` can cover
+ * Kept free of React and of `next/*` imports so `yarn test:web` can cover
  * them - node strips the types and runs the file directly, which only works for
  * modules that resolve outside the bundler.
  *
