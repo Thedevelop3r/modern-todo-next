@@ -30,6 +30,7 @@ const TIER_IDS = Object.keys(TIERS);
 const PER_FILE_CAPS = {
   base: { image: 15 * MB, video: 100 * MB, audio: 50 * MB, document: 50 * MB, pdf: 50 * MB },
   plus: { image: 25 * MB, video: 600 * MB, audio: 100 * MB, document: 1 * GB, pdf: 1 * GB },
+  premium: { image: 100 * MB, video: 4 * GB, audio: 100 * MB, document: 3 * GB, pdf: 3 * GB },
 };
 
 const PER_FILE_TIER_IDS = Object.keys(PER_FILE_CAPS);
@@ -126,7 +127,7 @@ const capFor = (kind, perFileTier = "base") => {
 };
 
 /** The largest single file any tier allows - busboy's hard limit. */
-const MAX_ANY_FILE = Math.max(...Object.values(PER_FILE_CAPS.plus));
+const MAX_ANY_FILE = Math.max(...Object.values(PER_FILE_CAPS.premium));
 
 /** `image/png` -> "image", or null when we do not accept the type at all. */
 const kindForMime = (mime) =>
