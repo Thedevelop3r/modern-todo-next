@@ -459,6 +459,6 @@ Next.js project, pages and API served from a single port.
   accessibility pass, structured request logging with request ids, `/api/health`
   and rate limiting surfaced in the UI.
 
-[2.1.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v2.1.0
-[2.0.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v2.0.0
-[1.0.0]: https://github.com/Thedevelop3r/modern-todo/releases/tag/v1.0-stable
+[2.1.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v2.1.0
+[2.0.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v2.0.0
+[1.0.0]: https://github.com/Thedevelop3r/modern-todo-next/releases/tag/v1.0-stable
