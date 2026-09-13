@@ -224,6 +224,26 @@ comparison inside the same atomic update that increments the counter — which i
 what stops two concurrent uploads both fitting into the same free space. Tiers are
 self-serve for now; billing is not wired up.
 
+**Tiers are defined in one place**, `server/config/storage.js`, and come in two
+independent kinds:
+
+- **Storage plans** (`TIERS`) — the account's total quota: Free (1 GB), then 10,
+  25, 50, 100, 250 and 500 GB, and 1 TB.
+- **Per-file tiers** (`PER_FILE_TIERS`) — the largest single file of each kind:
+
+  | Tier | Images | Videos | Audio | PDFs |
+  |---|---|---|---|---|
+  | Standard (`base`) | 15 MB | 100 MB | 50 MB | 50 MB |
+  | Extended (`plus`) | 25 MB | 600 MB | 100 MB | 1 GB |
+  | Premium (`premium`) | 100 MB | 4 GB | 100 MB | 3 GB |
+
+`GET /api/files/quota` sends both lists with their labels and sizes, and the Files
+page renders exactly what it receives — add, rename or resize a tier in that file
+and the page follows, with no frontend change. Changing a plan from the page
+requires `ALLOW_SELF_SERVE_TIERS=true`; otherwise the plan is shown read-only.
+Uploads must complete within Node's default 5-minute request timeout, which is
+what bounds the largest practical file on a slow connection.
+
 ## Rich text
 
 Titles and descriptions are stored as a **pair**: sanitised HTML and a plaintext

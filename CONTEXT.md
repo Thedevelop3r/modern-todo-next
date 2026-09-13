@@ -162,7 +162,7 @@ Package manager is **Yarn 4** (`yarn.lock`, `nodeLinker: node-modules`; the rele
 | DELETE | `/api/account` | erases everything; needs the password and `confirm: "DELETE"` |
 | POST | `/api/files` | multipart upload; fields `scopeKind`, `scopeId`, `compress` |
 | GET | `/api/files` | `?scopeKind=&scopeId=&kind=&page=&limit=` |
-| GET | `/api/files/quota` | usage, tier and the per-file caps; self-heals a drifted counter |
+| GET | `/api/files/quota` | usage, the account's tier and caps, and every plan (`tiers`) and per-file tier (`perFileTiers`) with labels and sizes; self-heals a drifted counter |
 | PUT | `/api/files/quota/tier` | change the plan (self-serve; no billing yet) |
 | GET | `/api/files/:id` | metadata |
 | GET/HEAD | `/api/files/:id/raw` | the bytes: Range-aware, ETag, `?download=1` forces attachment |

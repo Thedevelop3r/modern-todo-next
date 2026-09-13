@@ -27,6 +27,8 @@ const {
   KINDS,
   MAX_ANY_FILE,
   capFor,
+  largestCapFor,
+  formatLimit,
   kindForMime,
 } = require("../config/storage");
 
@@ -113,7 +115,7 @@ function receiveUpload({ req, destination, maxBytes, onProgress }) {
 
       stream.on("limit", () => {
         writeStream.destroy();
-        finish(ApiError.payloadTooLarge("That file is larger than your plan allows"));
+        finish(ApiError.payloadTooLarge(`That file is larger than your plan allows (up to ${formatLimit(maxBytes)})`));
       });
 
       stream.on("error", (error) => {
@@ -190,7 +192,9 @@ class File {
   static async create({ req, user, jobId }) {
     const userId = user._id;
     const perFileTier = user.storage?.perFileTier || "base";
-    const hardLimit = Math.min(MAX_ANY_FILE, capFor("document", perFileTier));
+    // The kind is not known until the first bytes arrive, so the stream is held
+    // to the tier's largest cap; the per-kind cap is checked once it is known.
+    const hardLimit = Math.min(MAX_ANY_FILE, largestCapFor(perFileTier));
 
     const declared = Number(req.headers["content-length"]) || 0;
     const reserved = declared > 0 ? declared : hardLimit;
@@ -234,7 +238,7 @@ class File {
       const cap = capFor(kind, perFileTier);
       if (received > cap) {
         throw ApiError.payloadTooLarge(
-          `A ${kind} may be up to ${Math.floor(cap / 1024 ** 2)} MB on your plan`
+          `A ${kind} may be up to ${formatLimit(cap)} on your plan`
         );
       }
 
