@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Modern Todo Installer
+Comment=Install Modern Todo on this computer
+Exec=modern-todo-installer
+Icon=modern-todo
+Terminal=false
+Categories=Utility;
